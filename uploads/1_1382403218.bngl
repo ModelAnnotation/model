@@ -1,0 +1,2131 @@
+#		HEADER SECTION [
+#G2 checkpoint and transition to mitosis model.
+# Important Note -- the left "[" and right "]" brackets preceded by a comment marker are to allow folding of the code in Notepad++.
+#Questions about this model should be addressed to:
+#Dr. Dennis A. Simpson 
+#University of North Carolina at Chapel Hill
+#Dept. of Pathology & Laboratory Medicine
+#CB7295
+#Chapel Hill, NC  27599
+#email: dsimpson@med.unc.edu
+#Phone: 919-966-88552
+#
+#Current version:  v2.1beta, expanded parameter section.  Attempting to have a given enzyme have a constant rate regardless of substrate.
+#Version Date:  Dec. 2012
+#
+#Version: v1.0; June 2010 by Kevin Kesseler.  Original core model.
+#Version: v1.1;  Aug. 9, 2010 by Dennis Simpson.  Added annotations to core model.
+#Version: v2.0beta Aug. 17, 2010 Dennis Simpson.  Refactor to NFsim, add many proteins.
+#Current version:  v2.1beta Dec. 2012 Dennis Simpson, expanded paramater section.  Attempting to have a given enzyme have a constant rate regardless of substrate.  
+# ]
+
+begin model
+
+begin molecule types #[
+CDK1(Bc,B2,B3,T14~U~P,Y15~U~P,T161~U~P)
+CCNB1(B,B1,B2,im,ep,L~CP~CS~NU,S126~U~P,S128~U~P,S133~U~P,S147~U~P)
+CAK1(B,L~NU)
+NucPore(B,L~NM,Im,Cr,cdk1~U~P)
+Importin(im,np,L~CP~NU)
+CRM1(ep,np,L~CP~NU)
+pkMYT1(B,L~GM,S426~U~P,T455~U~P,T461~U~P,T495~U~P) #426, 495 are Plk1, 455, 461 are likly p90RSK.  p90 allows Plk1.  Need a way to keep MPF from binding.  Loss of Plk1 increases protein by ~3x.
+WEE1(B,B2,im,ep,L~CP~CS~NU,S53~U~P,S121~U~P,S123~U~P,S139~U~P,T239~U~P,S642~U~P)
+bTrCP(B,L~CP~CS~NU)	#Anthony Smith et al., loss reduces mitotic entry slightly. Large reduction in Wee1 degradation. Wantabe et al., showed loss blocks Wee1 degradation and increased Cdc25a.
+PP2A(B,im,ep,L~CP~NU,X~1~2~3~4)
+CDC25a(B,B1,im,ep,L~CP~CS~NU,S18~U~P,S76~U~P,S82~U~P,S88~U~P,S116~U~P,S124~U~P,S178~U~P,T507~U~P)
+CDC25b(B,B2,B151,B230,B323,im,ep,L~CP~CS~NU,T50~U~P,S151~U~P,S160~U~P,T167~U~P,S209~U~P,S230~U~P,S238~U~P,S321~U~P,S323~U~P,S353~U~P,S375~U~P,S563~U~P)
+CDC25c(B,B1,B216,B263,im,ep,L~CP~CS~NU,Pin~U~M,T130~U~P,S168~U~P,S191~U~P,S198~U~P,S214~U~P,S216~U~P,T236~U~P,S263~U~P,S285~U~P,S287~U~P)
+CHK1(B,B2,B345,im,ep,L~CP~CS~NU,X~1~2~3~4,S280~U~P,S286~U~P,S301~U~P,S317~U~P,S345~U~P)
+CHK2(B,B2,im,ep,L~CP~CS~NU,X~1~2~3~4,T26~U~P,S33~U~P,S62~U~P,T68~U~P,S73~U~P,S120~U~P,S260~U~P,S379~U~P,T383~U~P,T387~U~P,T389~U~P,S516~U~P)
+H3(B,DNA,L~NU,S10~U~P)
+PLK1(B,B1,im,ep,L~CP~CS~NU,P~U~M,S137~U~P,T210~U~P)			#T210 is activating, S137 is autophos+unkown, impt for checkpoint recovery
+NEK11(B,im,ep,L~CP~CS~NU,T273~U~P)
+YWHAZ(B,B2,B3,D,L~CP~CS~NU)
+Count_1(a)												#This is used to get an idea of how many times a rule is applied.
+Count_2(b)												#This is used to get an idea of how many times a rule is applied.
+Count_3(c)												#This is used to get an idea of how many times a rule is applied.
+DUM(C)													#Dummy molecule to create and destroy proteins.
+Kinase(B,X~1~2~3~4)
+end molecule types # ]
+begin parameters # [
+#	Compartment Volume and Surface Area Parameters #[
+	vol_CP		 4.9			#I envision this to mean that the total volume of the cell is ~10.  I subtracted the golgi volume, centrosome volume and a fudge factor volume.
+	vol_NU		 5.0			#Nucleus to cytoplasm ratio for fibroblasts is 2:1 to 1:1.  I think this represents 1:1
+	vol_GO		 0.01			#Volume of golgi is ~0.001 that of cytoplasm.
+	sa_PM		23.0			#minimum surface area for a sphere with a volume of 10.0
+	sa_NM		15.0			#minimum surface area for a sphere with a volume of 5.0
+	sa_GM		 2.25			#minimum surface area for a sphere of 0.01 is 0.225.  Golgi has a large surface area compared to volume.
+	sa_CS		 0.0029		#Surface area of centrosome.  Measured is ~1.0 uM^2 with the range being 0.5 uM^2 early G2 and 1.5 uM^2 at mitosis.
+	#]
+# 	Rate Constants [
+		#Generic Constants [
+	std_Off			   10				#Standard OFF rate for complex dissolution.
+	std_Tran_Off		  200				#Standard Rate for release from Nuclear Transporters CRM1 and Importin
+	NP_kOn			 6500
+	NP_trans			 2000
+	NP_kOn2			 4000
+	NP_kOff			 1000
+	#]
+		#YWHAZ [
+	YWHAZ_kOn			0.05
+	YWHAZ_kOff			0.01
+	#]
+		#Chk1 [
+	Chk1_kOn_Active		0.000001			#CHK1(B345!+,S317~P,S345~P) 0.005
+	Chk1_kOn_Partial		0.00000001			#CHK1(S317~P,S345~P)
+	Chk1_kOn_Weak		0.00000005		#CHK1(S317~P,S345~U)
+	Chk1_kOn_Basal		0.00000001		#CHK1(S317~U,S345~U)
+	Chk1_Syn				0.03			#Generic synthesis rate.
+	Chk1_Deg				0.007			#Generic degraation rate.
+	Chk1_p317_On			0.001			#Spontaneous S317 phosphorylation.
+	Chk1_p317_Off			0.05			#Spontaneous S317 dephosphorylation.
+	Chk1_p345_On			0.03			#Spontaneous S345 phosphorylation.
+	Chk1_p345_Off			0.03			#Spontaneous S345 dephosphorylation.
+	Chk1_Import_Fast		3.0
+	Chk1_Import_Slow		0.12
+	Chk1_Export_Fast		0.081
+	Chk1_Export_Med		0.05
+	Chk1_Export_Slow		0.01
+	Chk1_CS_In			11
+	Chk1_CS_Out			0.0005
+	#]
+		#Chk2 [
+	Chk2_kOn_Active		0.001			#CHK2(T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P) 0.05
+	Chk2_kOn_Partial		0.0001			#CHK2(T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~U) 0.005
+	Chk2_kOn_Basal		0.00001			#CHK2() This is some lazy coding and thus should be changed because it includes all active forms of Chk2.  0.001
+	Chk2_Syn				0.025			#Synthesis
+	Chk2_Deg				0.008			#Spontaneous degradation.
+	Chk2_p68_On			0.00001		#Spontaneous T68 phosphorylation.
+	Chk2_Phos_Off			0.001			#Spontaneous dephosphorylation at all sites.
+	Chk2_Import			3.0
+	Chk2_Export			0.03
+	Chk2_Activate			0.005			#Chk2 auto-activation.
+	#]
+		#Nek11 [
+	Nek11_Dephos			0.0007
+	Nek11_kOn_Active		0.0008			#NEK11(T273~P)
+	Nek11_kOn_Basal		0.000008		#NEK11(T273~U)
+	#]
+		#CDC25a [
+	Cdc25a_Synthesis		0.11
+	Cdc25a_Import			0.8
+	Cdc25a_Export			0.02
+	Cdc25a_CS_in_1		0.15
+	Cdc25a_CS_in_2		4.5
+	Cdc25a_CS_out		0.0003
+	Cdc25a_kOn_Basal		0.00001		#CDC25a(?)  Represents basal activity. As of July 19, 2012 not used.
+	Cdc25a_kOn_Active		0.00005		#CDC25a(S124~U)
+	#]
+		#CDC25b [
+	Cdc25b_Synthesis		0.015
+	Cdc25b_Dephos		0.00004
+	Cdc25b_Dephos_2		0.0001
+	Cdc25b_Import_1		0.0045
+	Cdc25b_Import_2		0.09
+	Cdc25b_Export_1		0.0001
+	Cdc25b_Export_2		0.01  #Not currently used.
+	Cdc25b_Export_3		0.06
+	Cdc25b_CS_in			0.15
+	Cdc25b_CS_out		0.0003
+	Cdc25b_kOn_Active		0.0008
+	Cdc25b_kOn_Partial		0.00001		#CDC25b(S160~P,S238~P,S321~P) 0.0003
+	Cdc25b_kOn_Weak		0.00003		#CDC25b(S151~P,S230~P)
+	#]
+		#CDC25c [
+	Cdc25c_Synthesis		0.01
+	Cdc25c_Degrade		0.00075
+	Cdc25c_Import_1		0.005
+	Cdc25c_Import_2		0.05
+	Cdc25c_Import_3		0.01
+	Cdc25c_Export_1		0.01
+	Cdc25c_Export_2		0.2
+	Cdc25c_CS_in			0.001
+	Cdc25c_CS_out_1		0.0001
+	Cdc25c_CS_out_2		0.00001
+	Cdc25c_kOn_Basal		0.00001		#CDC25c(S214~U,S216~U)
+	Cdc25c_kOn_Active		0.0007			#CDC25c(S214~P)
+	#]
+		#CCNB1 [
+	CCNB1_Synthesis		0.008
+	CCNB1_Deg_Slow		0.0002
+	CCNB1_Deg_Fast		0.0001
+	CCNB1_On_1			0.009		#Complex formation with CDK1
+	CCNB1_On_2			1.0			#Fast complex formation with CDK1 stimulated by p161, not used.
+	CCNB1_Off			3.0
+	#]
+		#MPF [
+	MPF_kOn_Partial		0.0001			#CDK1(T14~U,Y15~P) 0.0001,5
+	MPF_kOn_Active		0.01			#CDK1(T14~U,Y15~U) 0.03
+	MPF_Import			0.025
+	MPF_Import_Fast		0.02
+	MPF_Export_Fast		0.03
+	MPF_Export_Slow		0.00001
+	MPF_CS_In			1.0
+	MPF_CS_Out			0.0003
+	#]
+		#pkMyt1 [
+	pkMyt1_Synthesis		0.03
+	pkMyt1_Degrade_1		0.00008
+	pkMyt1_Degrade_2		0.0001
+	pkMyt1_Degrade_3		0.004
+	pkMyt1_kOn			0.15			#pkMYT1()  0.07
+	#]
+		#Wee1 [
+	Wee1_Synthesis		0.11
+	Wee1_Import			1.5
+	Wee1_Export			0.025
+	Wee1_kOn_Basal		0.007			#WEE1(S123~U,S139~U)
+	Wee1_kOn_Active		0.12			#WEE1(S123~U,S139~P)  0.02
+	#]
+		#Plk1 [
+	Plk1_Synthesis			0.15
+	Plk1_Degrade			0.003
+	Plk1_Phos				0.001
+	Plk1_Dephos			0.02
+	Plk1_Import			0.065
+	Plk1_Export			0.035
+	Plk1_CS_in			2.0
+	Plk1_CS_out			0.003
+	Plk1_kOn_Basal		0.000001		#PLK1(T210~P)
+	Plk1_kOn_Active		0.001			#PLK1(T210~P)
+	#]
+		#PP2A [
+	PP2A_kOn			0.005			#PP2A() .0007
+	#]
+		#CAK1 [
+	CAK1_kOn			0.01
+	#]
+		#bTrCP [
+	bTrCP_CDC25a_Low	0.008
+	bTrCP_CDC25a_Med	0.03
+	bTrCP_CDC25a_Hi		0.3
+	bTrCP_CDC25b		0.0002
+	bTrCP_We1_Low		0.0025
+	bTrCP_We1_Med		0.55
+	bTrCP_We1_Hi			1.0
+	#]
+		#Generic Kinase [
+	Kinase_On			0.001
+	#]
+	#]
+end parameters #]
+begin observables #[
+	#H3 [
+Molecules	pH3									H3(S10~P)
+Molecules H3_Bound						H3(B!+)
+	#]
+	#pkMYT1 [
+Molecules	pkMYT1								pkMYT1()
+#Molecules	pkMYT1_MPF							CDK1(Bc!0,B2!9,B3,T14,Y15).CCNB1(B!0,L).pkMYT1(B!9)
+#Molecules	pkMYT1_S426p						pkMYT1(B,S426~P,T455,T461,T495~U)
+#Molecules	pkMYT1_S495p						pkMYT1(B,S426~U,T455,T461,T495~P)
+Molecules	pkMYT1_S426p_S495p					pkMYT1(S426~P,T495~P)
+#Molecules pKMYT1_T455p						pkMYT1(T455~P)
+#Molecules pkMYT1_T461p						pkMYT1(T461~P)
+	#]
+	#WEE1 [
+#Molecules	Wee_ImCP							WEE1(B,im!+,L~CP)
+#Molecules	Wee1_ImNU							WEE1(B,im!+,L~NU)
+#Molecules	Wee_Crmcp							WEE1(B,im,ep!+,L~CP)
+#Molecules	Wee_Crmnu							WEE1(B,im,ep!+,L~NU)
+#Molecules	WeeIm_NPc							WEE1(B,im!1,L~CP).Importin(im!1,np!+)
+Molecules	WEE1_CP							WEE1(L~CP)
+Molecules	WEE1_NU								WEE1(L~NU)
+Molecules	Wee1								WEE1()
+Molecules	Wee1_139P							WEE1(S139~P)
+Molecules	Wee1_123P							WEE1(S123~P)
+#Molecules	Wee1_pp								WEE1(S123~P,S139~P)
+Molecules	Wee1_S53p							WEE1(S53~P)
+	#]
+	#CCNB1 [
+#CCNB1s147p										CCNB1(B!+,S147~P)
+
+#Molecules	CCNB_PPP_CS						CCNB1(B!+,im,ep,L~CS,S126~P,S128~P,S133~P)
+#Molecules	CCNB_PPP_CP						CCNB1(B!+,im,ep,L~CP,S126~P,S128~P,S133~P)
+#Molecules	CCNB_PPP_NU						CCNB1(B!+,im,ep,L~NU,S126~P,S128~P,S133~P)
+#Molecules	CCNB_PPP							CCNB1(B!+,im,ep,S126~P,S128~P,S133~P)
+
+Molecules	CCNB_S126p_S128p_S133u_CS			CCNB1(B!+,im,ep,L~CS,S126~P,S128~P,S133~U)
+Molecules	CCNB_S126p_S128p_S133u_CP			CCNB1(B!+,im,ep,L~CP,S126~P,S128~P,S133~U)
+Molecules	CCNB_S126p_S128p_S133u_NU			CCNB1(B!+,im,ep,L~NU,S126~P,S128~P,S133~U)
+Molecules	CCNB_S126p_S128p_S133u				CCNB1(B!+,im,ep,S126~P,S128~P,S133~U)
+
+Molecules	CCNB_S133p_CS						CCNB1(B!+,im,ep,L~CS,S133~P)
+Molecules	CCNB_S133p_CP						CCNB1(B!+,im,ep,L~CP,S133~P)
+Molecules	CCNB_S133p_NU						CCNB1(B!+,im,ep,L~NU,S133~P)
+Molecules	CCNB_S133p							CCNB1(B!+,im,ep,S133~P)
+
+#Molecules	CCNB_uuu_CS							CCNB1(B!+,im,ep,L~CS,S126~U,S128~U,S133~U)
+#Molecules	CCNB_uuu_CP							CCNB1(B!+,im,ep,L~CP,S126~U,S128~U,S133~U)
+#Molecules	CCNB_uuu_NU						CCNB1(B!+,im,ep,L~NU,S126~U,S128~U,S133~U)
+#Molecules	CCNB_uuu							CCNB1(B!+,im,ep,S126~U,S128~U,S133~U)
+Molecules	CCNB1_free							CCNB1(B,B1,B2,im,ep)
+	#]
+	#CDK1.CCNB1 [
+#Molecules	MPF_T14P_Y15U_CS					CDK1(Bc!0,T14~P,Y15~U).CCNB1(B!0,L~CS)	
+#Molecules	MPF_T14P_Y15U_CP					CDK1(Bc!0,T14~P,Y15~U).CCNB1(B!0,L~CP)	
+#Molecules	MPF_T14P_Y15U_NU					CDK1(Bc!0,T14~P,Y15~U).CCNB1(B!0,L~NU)
+Molecules	MPF_T14P_Y15U						CDK1(Bc!+,T14~P,Y15~U)
+
+#Molecules	MPF_T14U_Y15P_CS					CDK1(Bc!0,T14~U,Y15~P).CCNB1(B!0,L~CS)
+#Molecules	MPF_T14U_Y15P_CP					CDK1(Bc!0,T14~U,Y15~P).CCNB1(B!0,L~CP)
+#Molecules	MPF_T14U_Y15P_NU					CDK1(Bc!0,T14~U,Y15~P).CCNB1(B!0,L~NU)
+Molecules	MPF_T14U_Y15P						CDK1(Bc!+,T14~U,Y15~P)
+
+#Molecules	MPF_T14P_Y15P_CP					CDK1(Bc!0,T14~P,Y15~P).CCNB1(B!0,L~CP)
+#Molecules	MPF_T14P_Y15P_CS					CDK1(Bc!0,T14~P,Y15~P).CCNB1(B!0,L~CS)
+#Molecules	MPF_T14P_Y15P_NU					CDK1(Bc!0,T14~P,Y15~P).CCNB1(B!0,L~NU)
+Molecules	MPF_T14P_Y15P						CDK1(Bc!+,T14~P,Y15~P)
+
+#Molecules	MPF_T14U_Y15U_CS					CDK1(Bc!0,T14~U,Y15~U).CCNB1(B!0,L~CS)
+#Molecules	MPF_T14U_Y15U_CP					CDK1(Bc!0,T14~U,Y15~U).CCNB1(B!0,L~CP)
+#Molecules	MPF_T14U_Y15U_NU					CDK1(Bc!0,T14~U,Y15~U).CCNB1(B!0,L~NU)
+Molecules	MPF_T14U_Y15U						CDK1(Bc!+,T14~U,Y15~U)
+	
+Molecules	MPF_CS								CDK1(Bc!0).CCNB1(B!0,L~CS)
+Molecules	MPF_CP								CDK1(Bc!0).CCNB1(B!0,L~CP)
+Molecules	MPF_NU								CDK1(Bc!0).CCNB1(B!0,B1,B2,L~NU)
+Molecules	MPF_total								CDK1(Bc!+)
+Molecules CDK1_T14p							CDK1(T14~P)
+Molecules CDK1_Y15p							CDK1(Y15~P)
+Molecules MPF_T161u							CDK1(Bc!+,T161~U)
+Molecules MPF_T161p							CDK1(Bc!+,T161~P)
+
+#Molecules	MPF_NucP							CDK1(Bc!0,B2!7,B3,T14,T161~P).CCNB1(B!0,B1,B2,im,ep,L,S126,S128,S133,S147).NucPore(cdk1~P!7)
+#Molecules	MPF_IM								CDK1(Bc!0,B2,B3,T161~P).CCNB1(B!0,B1,B2,im!4).Importin(im!4)	
+#Molecules	MPF_IM_NP_NU						CCNB1(B!+,im!4,ep,L~NU,S126,S128,S133,S147~P).Importin(im!4,np!+,L~NU)
+	#]
+	#Transporters [
+Molecules	Importin								Importin()
+Molecules	Im_Cg_CP							Importin(im!+,L~CP)
+Molecules	Im_Cg_NU							Importin(im!+,L~NU)
+#Molecules	Im_NP_Cg_CP							Importin(im!+,np!+,L~CP)
+#Molecules	Im_NP_NU							Importin(im,np!+,L~NU)
+#Molecules	Im_NP_CP							Importin(im,np!+,L~CP)
+Molecules	CRM									CRM1()
+Molecules	CRM_Cg_NU							CRM1(ep!+,L~NU)
+Molecules	CRM_Cg_CP							CRM1(ep!+,L~CP)
+#Molecules	CRM_NP_Cg_CP						CRM1(ep!+,np!1,L~CP)
+#Molecules	CRM_NP_Cg_NU						CRM1(ep!+,np!1,L~NU)
+
+#Molecules	NucPore_t							NucPore()
+#Molecules	NucPore_P							NucPore(Im!?,Cr!?,cdk1~P)
+#Molecules NucPore_Im_Cm						NucPore(Im!+,Cr!+)
+	#]
+	#PLK1 [
+Molecules	tPLK1							PLK1()
+Molecules	cPLK1							PLK1(im,ep,L~CP)
+Molecules	nPLK1							PLK1(im,ep,L~NU)
+Molecules	csPLK1							PLK1(im,ep,L~CS)
+Molecules	nPlk1_T210p						PLK1(T210~P,L~NU)
+Molecules	cPlk1_T210p						PLK1(T210~P,L~CP)
+Molecules	csPlk1_T210p						PLK1(T210~P,L~CS)
+#Molecules	tPlk1_Wee1							PLK1(B!2).WEE1(B!2)
+#Molecules	Plk1_pkMyt1							PLK1(B!3,B1,im,ep,L,P,S137,T210~P).pkMYT1(B!3,L~GM,S426,T455,T461,T495)
+#Molecules	Plk1_Crm1nu							PLK1(B,B1,im,ep!+,L~NU)
+#Molecules	Plk1_IMcp							PLK1(B,B1,im!+,ep,L~CP)
+	#]
+	#CDC25a [
+Molecules	Cdc25a_nu						CDC25a(im,ep,L~NU)
+Molecules	Cdc25a_cp						CDC25a(im,ep,L~CP)
+Molecules	Cdc25a_cs						CDC25a(im,ep,L~CS)
+Molecules	Cdc25a							CDC25a()
+Molecules CDC25a_Bound					CDC25a(B!+)
+Molecules	Cdc25a_S76p						CDC25a(B,S76~P)
+Molecules	Cdc25a_cp_S82_88					CDC25a(L~CP,S82~P,S88~P)
+Molecules	Cdc25a_nu_S82_88					CDC25a(L~NU,S82~P,S88~P)
+Molecules	Cdc25a_S82p_88p					CDC25a(S82~P,S88~P)
+Molecules	Cdc25a_S116p						CDC25a(S116~P)
+Molecules	Cdc25a_S124p						CDC25a(S124~P)
+Molecules	Cdc25a_S178p						CDC25a(S178~P)
+#Molecules	Cdc25a_S178p_YWHAZ				CDC25a(S178~P!+)
+#Molecules	Cdc25a_T507p_YWHAZ				CDC25a(T507~P!+)
+Molecules	Cdc25a_T507p						CDC25a(T507~P)
+#Molecules	Cdc25a_NEK_cp					CDC25a(B!+,im,ep,L~CP)
+#Molecules	Cdc25a_IM_NP_NU					CDC25a(B,B1,im!3,ep,L~NU)
+#Molecules	Cdc25a_IM_CP						CDC25a(im!3,L~CP)
+#Molecules	Cdc25a_CRM_NU					CDC25a(im,ep!+,L~NU)
+#Molecules	Cdc25a_CRM_CP					CDC25a(im,ep!+,L~CP)
+	#]
+	#CDC25b [
+		#Location & Total [
+Molecules	Cdc25b							CDC25b()
+Molecules	Cdc25b_nu						CDC25b(L~NU)
+Molecules	Cdc25b_cp						CDC25b(L~CP)
+Molecules	Cdc25b_cs						CDC25b(L~CS)
+Molecules	Cdc25b_bound						CDC25b(B!+)
+#Molecules	Cdc25b_CRM1						CDC25b(ep!+)
+#Molecules	Cdc25b_Im						CDC25b(im!+)
+		#]
+		#PLK1 Targets [
+Molecules Cdc25b_T167p						CDC25b(T167~P)
+Molecules	Cdc25b_S209p						CDC25b(S209~P)
+		#]
+		#CHK Targets [
+#Molecules	Cdc25b_S151_S323_NU				CDC25b(B,B2,L~NU,S151~P!?,S323~P!?)
+#Molecules	Cdc25b_S230_S323_NU				CDC25b(B,B2,L~NU,S230~P!?,S323~P!?)
+#Molecules	Cdc25b_S151_S230_S323_NU			CDC25b(B,B2,L~NU,S151~P!?,S230~P!?,S323~P!?)
+Molecules	Cdc25b_S151p						CDC25b(B,B2,S151~P)
+Molecules	Cdc25b_S230p						CDC25b(B,B2,S230~P)
+Molecules	Cdc25b_S323p						CDC25b(B,B2,S323~P)
+		#]
+		#CDK1.CCNB1 Targets [
+Molecules	Cdc25b_T50p						CDC25b(T50~P)
+Molecules	Cdc25b_S160p						CDC25b(S160~P)
+Molecules	Cdc25b_S238p						CDC25b(S238~P)
+Molecules	Cdc25b_S321p						CDC25b(S321~P)
+		#]
+		#14-3-3 Monitoring [
+Molecules	Cdc25b_B151						CDC25b(B151!+)
+Molecules	Cdc25b_B230						CDC25b(B230!+)
+Molecules	Cdc25b_B323						CDC25b(B323!+)
+Molecules	Cdc25b_B151_B323					CDC25b(B151!+,B323!+)
+Molecules	Cdc25b_B230_B323					CDC25b(B230!+,B323!+)
+		#] ]
+	#CDC25c [
+Molecules	Cdc25c							CDC25c()
+Molecules	Cdc25c_NU						CDC25c(L~NU)
+Molecules	Cdc25c_CP						CDC25c(L~CP)
+Molecules	Cdc25c_CS						CDC25c(L~CS)
+Molecules CDC25c_Bound					CDC25c(B!+)
+Molecules	Cdc25c_T130p						CDC25c(T130~P)
+Molecules	Cdc25c_S168p						CDC25c(S168~P)
+Molecules	Cdc25c_S214p						CDC25c(S214~P)
+Molecules	Cdc25c_S216p						CDC25c(S216~P)
+Molecules	Cdc25c_S263p						CDC25c(S263~P)
+Molecules	Cdc25c_S214u_S216u				CDC25c(S214~U,S216~U)
+
+Molecules	Cdc25c_B216						CDC25c(B216!+)
+Molecules	Cdc25c_B263						CDC25c(B263!+)
+Molecules	Cdc25c_B216_B263					CDC25c(B216!+,B263!+)
+	#]
+	#CHK1 [
+Molecules	Chk1								CHK1()
+Molecules	Chk1_CP							CHK1(L~CP)
+Molecules	Chk1_NU							CHK1(L~NU)
+Molecules	Chk1_CS							CHK1(L~CS)
+
+Molecules Chk1_S345p						CHK1(S345~P)
+Molecules CHK1_Bound						CHK1(B!+)
+#Molecules	Chk1_S317p_S345u					CHK1(S317~P,S345~U)
+#Molecules	Chk1_S317p_S345u_nu				CHK1(L~NU,S317~P,S345~U)
+#Molecules	Chk1_S317p_S345u_cs				CHK1(L~CS,S317~P,S345~U)
+#Molecules	Chk1_S317p						CHK1(S317~P)
+Molecules	Chk1_B345						CHK1(B345!+)
+#Molecules	Chk1_YWHAZ_S345u					CHK1(B345!+,S345~U)
+#Molecules	Chk1_S345p_nu					CHK1(B345!?,L~NU,S345~P)
+#Molecules	Chk1_S345p_cs					CHK1(B345!?,L~CP,S345~P)
+#Molecules	Chk1_YWHAZ_cp					CHK1(B,B2,B345!+,L~CP)
+#Molecules	Chk1_YWHAZ_nu					CHK1(B,B2,B345!+,L~NU)
+#Molecules	Chk1_Im_CP						CHK1(im!7).Importin(im!7,np,L~CP)
+#Molecules	Chk1_Im_NP_cp					CHK1(im!7).Importin(im!7,np!+,L~CP)
+#Molecules	Chk1_CRM_NU						CHK1(ep!7).CRM1(ep!7,np,L~NU)
+#Molecules	Chk1_CRM_NP_nu					CHK1(ep!7).CRM1(ep!7,np!+,L~NU)
+#Molecules	Chk1_CDC25c						CHK1(B!2).CDC25c(B!2)
+	#]
+	#NEK11 [
+#Molecules	NEK11_T273p						NEK11(B,T273~P)
+Molecules NEK11_Bound						NEK11(B!+)
+	#]
+	#CHK2 [
+Molecules	Chk2								CHK2()
+Molecules	Chk2_CP							CHK2(L~CP)
+Molecules	Chk2_CS							CHK2(L~CS)
+Molecules	Chk2_NU							CHK2(L~NU)
+Molecules	Chk2_T68p						CHK2(T68~P)
+#Molecules	Chk2_T387p						CHK2(T387~P)
+#Molecules	Chk2_S516p						CHK2(S516~P)
+Molecules CHK2_Bound						CHK2(B!+)
+	#]
+	#Miscellaneous [
+Molecules Kinase_Bound						Kinase(B!+)
+Molecules bTrCP_Bound						bTrCP(B!+)
+Molecules CAK1_Bound						CAK1(B!+)
+Molecules	PP2A_BOUND						PP2A(B!+)
+Molecules	Wee1_Bound						WEE1(B!+)
+Molecules pkMYT1_Bound					pkMYT1(B!+)
+Molecules	MPF_Bound						CDK1(B2!+)
+Molecules PLK1_Bound						PLK1(B!+)
+Molecules YWHAZ							YWHAZ()
+Molecules	Count_1							Count_1(a)
+Molecules	Count_2							Count_2(b)
+Molecules	Count_3							Count_3(c)
+	#]
+end observables #]
+begin functions #[
+##	No functions designed yet.
+end functions	#]
+begin seed species #[
+H3(B,DNA,L~NU,S10~U) 10000
+
+CDK1(Bc,B2,B3,T14~U,Y15~P,T161~U) 100
+CDK1(Bc,B2,B3,T14~P,Y15~P,T161~U) 100
+CCNB1(B,B1,B2,im,ep,L~CP,S126~U,S128~U,S133~U,S147~U) 1
+CAK1(B,L~NU)	50
+
+NucPore(B,L~NM,Im,Cr,cdk1~U) 50
+Importin(im,np,L~CP) 200
+CRM1(ep,np,L~NU) 200
+
+WEE1(B,B2,im,ep,L~NU,S53~U,S121~U,S123~U,S139~U,T239~U,S642~U) 75
+pkMYT1(B,L~GM,S426~U,T455~U,T461~U,T495~U) 75
+
+CHK1(B,B2,B345,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~U,S345~U) 100
+CHK1(B,B2,B345,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~U,S345~U) 1
+
+CHK2(B,B2,im,ep,L~NU,X~1,T26~U,S33~U,S62~U,T68~U,S73~U,S120~U,S260~U,S379~U,T383~U,T387~U,T389~U,S516~U) 100
+CHK2(B,B2,im,ep,L~CP,X~1,T26~U,S33~U,S62~U,T68~U,S73~U,S120~U,S260~U,S379~U,T383~U,T387~U,T389~U,S516~U) 1
+
+NEK11(B,im,ep,L~NU,T273~U) 200
+
+bTrCP(B,L~CP) 100
+
+PP2A(B,im,ep,L~CP,X~1) 50
+PP2A(B,im,ep,L~NU,X~1) 50
+
+CDC25a(B,B1,im,ep,L~NU,S18~U,S76~U,S82~U,S88~U,S116~U,S124~U,S178~U,T507~U) 100
+CDC25b(B,B2,B151,B230,B323,im,ep,L~NU,T50~U,S151~U,S160~U,T167~U,S209~U,S230~U,S238~U,S321~U,S323~U,S353~U,S375~U,S563~U) 30
+CDC25b(B,B2,B151,B230,B323,im,ep,L~NU,T50~U,S151~P,S160~U,T167~U,S209~U,S230~U,S238~U,S321~U,S323~P,S353~U,S375~U,S563~U) 70
+CDC25c(B,B1,B216,B263,im,ep,L~NU,Pin~U,T130~U,S168~U,S191~U,S198~U,S214~U,S216~P,T236~U,S263~P,S285~U,S287~U) 80
+CDC25c(B,B1,B216,B263,im,ep,L~NU,Pin~U,T130~U,S168~U,S191~U,S198~U,S214~U,S216~U,T236~U,S263~U,S285~U,S287~U) 20
+
+PLK1(B,B1,im,ep,L~CP,P~U,S137~U,T210~U) 40
+PLK1(B,B1,im,ep,L~NU,P~U,S137~U,T210~U) 60
+
+YWHAZ(B,B2,B3,D,L~CP) 600
+
+Count_1(a) 0
+Count_2(b) 0
+Count_3(c) 0
+Kinase(B,X~1) 100
+DUM(C) 35
+
+end seed species #]
+begin reaction rules #[
+#The notes correspond to the entity diagrams.
+
+#	14-3-3 [
+		#CHK1 [
+			#Binding [
+Note 68:	YWHAZ(B,B2,B3,D)+CHK1(B,B2,B345,im,ep,L~CP,S345~P)<->\
+		YWHAZ(B!8,B2,B3,D).CHK1(B,B2,B345!8,im,ep,L~CP,S345~P)\
+			YWHAZ_kOn/vol_CP,YWHAZ_kOff/vol_CP
+			#]
+		
+			#Complex Dissolution [
+Note 68:	YWHAZ(B!8,B2,B3,D).CHK1(B,B2,B345!8,im,ep,S345~U)->\
+		YWHAZ(B,B2,B3,D)+CHK1(B,B2,B345,im,ep,S345~U)\
+			std_Off
+		#]
+	#]
+		#CDC25b [
+			#S323 Binding [
+Note 69:	YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,B230,B323,im,ep,L~CP,S321~U,S323~P)<->\
+		YWHAZ(B!0,B2,B3,D).CDC25b(B,B2,B151,B230,B323!0,im,ep,L~CP,S321~U,S323~P)\
+			YWHAZ_kOn/vol_CP,0.5*YWHAZ_kOff/vol_CP
+Note 69:	YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151!+,B230,B323,im,ep,L~CP,S321~U,S323~P)->\
+		YWHAZ(B!0,B2,B3,D).CDC25b(B,B2,B151!+,B230,B323!0,im,ep,L~CP,S321~U,S323~P)\
+			YWHAZ_kOn/vol_CP
+Note 69:	YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,B230!+,B323,im,ep,L~CP,S321~U,S323~P)->\
+		YWHAZ(B!0,B2,B3,D).CDC25b(B,B2,B151,B230!+,B323!0,im,ep,L~CP,S321~U,S323~P)\
+			YWHAZ_kOn/vol_CP
+			
+			#Complex Dissolution
+Note 69:	YWHAZ(B!0,B2,B3,D).CDC25b(B,B2,B323!0,im,ep,S323~U)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B323,im,ep,S323~U)\
+			std_Off
+Note 69:	YWHAZ(B!0,B2,B3,D).CDC25b(B,B2,B323!0,im,ep,S321~P)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B323,im,ep,S321~P)\
+			0*std_Off
+		#]
+			#S151 Binding [
+Note 90:	YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,B230,B323!+,im,ep,L~CP,S151~P,S160~U,T167~U)->\
+		YWHAZ(B!1,B2,B3,D).CDC25b(B,B2,B151!1,B230,B323!+,im,ep,L~CP,S151~P,S160~U,T167~U)\
+			0.1*YWHAZ_kOn/vol_CP
+			
+			#Complex Dissolution
+Note 90:	YWHAZ(B!1,B2,B3,D).CDC25b(B,B2,B151!1,B323,im,ep)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,B323,im,ep)\
+			YWHAZ_kOff
+Note 90:	YWHAZ(B!1,B2,B3,D).CDC25b(B,B2,B151!1,im,ep,S151~U)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,im,ep,S151~U)\
+			std_Off
+Note 90:	YWHAZ(B!1,B2,B3,D).CDC25b(B,B2,B151!1,im,ep,S160~P)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,im,ep,S160~P)\
+			std_Off
+Note 90:	YWHAZ(B!1,B2,B3,D).CDC25b(B,B2,B151!1,im,ep,T167~P)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,im,ep,T167~P)\
+			std_Off
+
+		#]	
+			#S230 Binding [
+Note 91:	YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,B230,B323,im,ep,L~CP,S209~U,S230~P,S238~U)<->\
+		YWHAZ(B!2,B2,B3,D).CDC25b(B,B2,B151,B230!2,B323,im,ep,L~CP,S209~U,S230~P,S238~U)\
+			0*YWHAZ_kOn/vol_CP,YWHAZ_kOff/vol_CP
+
+Note 91:	YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,B230,B323!+,im,ep,L~CP,S209~U,S230~P,S238~U)->\
+		YWHAZ(B!2,B2,B3,D).CDC25b(B,B2,B151,B230!2,B323!+,im,ep,L~CP,S209~U,S230~P,S238~U)\
+			0.1*YWHAZ_kOn/vol_CP
+			
+			#Complex Dissolution
+Note 91:	YWHAZ(B!2,B2,B3,D).CDC25b(B,B2,B230!2,B323,im,ep)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B230,B323,im,ep)\
+			YWHAZ_kOff
+
+Note 91:	YWHAZ(B!2,B2,B3,D).CDC25b(B,B2,B230!2,im,ep,S230~U)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B230,im,ep,S230~U)\
+			std_Off
+Note 91:	YWHAZ(B!2,B2,B3,D).CDC25b(B,B2,B230!2,im,ep,S238~P)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B230,im,ep,S238~P)\
+			std_Off
+Note 91:	YWHAZ(B!2,B2,B3,D).CDC25b(B,B2,B230!2,im,ep,S209~P)->\
+		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B230,im,ep,S209~P)\
+			std_Off
+
+			#]
+			 #PLK1 dependent Complex Dissolution Rules [
+#Note 69:	YWHAZ(B!1,B2,B3,D).CDC25b(B,B2,B151!1,im,ep,S151~P)->\
+#		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B151,im,ep,S151~P)\
+#			0*std_Off
+#Note 69:	YWHAZ(B!2,B2,B3,D).CDC25b(B,B2,B230!2,im,ep,S230~P)->\
+#		YWHAZ(B,B2,B3,D)+CDC25b(B,B2,B230,im,ep,S230~P)\
+#			0*std_Off
+			#]
+	#]
+		#CDC25c [
+				#S216 [
+Note 70:	YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B216,B263,im,ep,L~CP,S214~U,S216~P)<->\
+		YWHAZ(B!5,B2,B3,D).CDC25c(B,B1,B216!5,B263,im,ep,L~CP,S214~U,S216~P)\
+			0.00001*YWHAZ_kOn/vol_CP,10*YWHAZ_kOff/vol_CP
+Note 70:	YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B216,B263!+,im,ep,L~CP,S214~U,S216~P)->\
+		YWHAZ(B!5,B2,B3,D).CDC25c(B,B1,B216!5,B263!+,im,ep,L~CP,S214~U,S216~P)\
+			10*YWHAZ_kOn/vol_CP
+			
+				#Complex Dissolution
+Note 70:	YWHAZ(B!5,B2,B3,D).CDC25c(B,B1,B216!5,im,ep,L~CP,S214~P,S216~P)->\
+		YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B216,im,ep,L~CP,S214~P,S216~P)\
+			std_Off
+Note 70:	YWHAZ(B!5,B2,B3,D).CDC25c(B,B1,B216!5,im,ep,L~CP,S216~U)->\
+		YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B216,im,ep,L~CP,S216~U)\
+			std_Off  
+				#]
+				#S263 [
+Note 70:	YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B216,B263,im,ep,L~CP,S263~P)<->\
+		YWHAZ(B,B2!6,B3,D).CDC25c(B,B1,B216,B263!6,im,ep,L~CP,S263~P)\
+			YWHAZ_kOn/vol_CP,YWHAZ_kOff/vol_CP
+		YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B216!+,B263,im,ep,L~CP,S263~P)->\
+		YWHAZ(B,B2!6,B3,D).CDC25c(B,B1,B216!+,B263!6,im,ep,L~CP,S263~P)\
+			10*YWHAZ_kOn/vol_CP
+			
+				#Complex Dissolution 
+Note 70:	YWHAZ(B,B2!6,B3,D).CDC25c(B,B1,B263!6,im,ep,L~CP,S214~P,S263~P)->\
+		YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B263,im,ep,L~CP,S214~P,S263~P)\
+			std_Off
+Note 70:	YWHAZ(B,B2!6,B3,D).CDC25c(B,B1,B263!6,im,ep,L~CP,S263~U)->\
+		YWHAZ(B,B2,B3,D)+CDC25c(B,B1,B263,im,ep,L~CP,S263~U)\
+			std_Off	
+				#]
+		#]
+	#]
+#	CHK1 [
+		#CHK1 Synthesis and Destruction [
+Note 56:	DUM(C)->\
+		DUM(C)+CHK1(B,B2,B345,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)\
+			Chk1_Syn/vol_CP
+Note 56:	DUM(C)+CHK1(B345,L~CP,im,ep)->\
+		DUM(C)\
+			Chk1_Deg/vol_CP
+	#]
+		#CHK1 Spontaneous Phosphorylation, Dephosphorylation [
+Note 57:	DUM(C)+CHK1(B,B2,im,ep,L~NU,S317~U,S345~U)<->\
+		DUM(C)+CHK1(B,B2,im,ep,L~NU,S317~P,S345~U)\
+			Chk1_p317_On/vol_NU,Chk1_p317_Off/vol_NU		#Spontaneous Activation of Chk1, remove when ATM and ATR are in model.
+
+Note 57:	DUM(C)+CHK1(B,B2,im,ep,L~NU,S317~P,S345~U)<->\
+		DUM(C)+CHK1(B,B2,im,ep,L~NU,S317~P,S345~P)\
+			Chk1_p345_On/vol_NU,Chk1_p345_Off/vol_NU			#Spontaneous Activation of Chk1, remove when ATM and ATR are in model.
+	#]
+		#Chk1 Nucleo-Cytoplasmic Transport [
+					#Import [
+Note 58:	CHK1(B,B2,im,ep,L~CP,S286~U,S301~U)+Importin(im,np,L~CP)->\
+		CHK1(B,B2,im!7,ep,L~CP,S286~U,S301~U).Importin(im!7,np,L~CP)\
+			Chk1_Import_Fast/vol_CP
+Note 58:	CHK1(B,B2,im,ep,L~CP,S286~P,S301~P)+Importin(im,np,L~CP)->\
+		CHK1(B,B2,im!7,ep,L~CP,S286~P,S301~P).Importin(im!7,np,L~CP)\
+			Chk1_Import_Slow/vol_CP
+				#Release into Nucleus
+Note 58:	CHK1(B,B2,im!7,ep,L~CP).Importin(im!7,np!+,L~NU)->\
+		CHK1(B,B2,im,ep,L~NU)+Importin(im,np!+,L~NU)\
+			std_Tran_Off/vol_NU
+				#]
+					#Export  need to confirm these export rules as of March 7, 2013 [
+Note 59:	CHK1(B,B2,im,ep,L~NU,S345~U)+CRM1(ep,np,L~NU)->\
+		CHK1(B,B2,im,ep!7,L~NU,S345~U).CRM1(ep!7,np,L~NU)\
+			Chk1_Export_Med/vol_NU
+Note 59:	CHK1(B,B2,im,ep,L~NU,S280,S345~P)+CRM1(ep,np,L~NU)->\
+		CHK1(B,B2,im,ep!7,L~NU,S280,S345~P).CRM1(ep!7,np,L~NU)\
+			Chk1_Export_Fast/vol_NU
+Note 59:	CHK1(B,B2,B345!+,im,ep,L~NU,S280~U)+CRM1(ep,np,L~NU)->\
+		CHK1(B,B2,B345!+,im,ep!7,L~NU,S280~U).CRM1(ep!7,np,L~NU)\
+			Chk1_Export_Slow/vol_NU
+				#Release into Cytoplasm
+Note 59:	CHK1(B,B2,im,ep!7,L~NU).CRM1(ep!7,np!+,L~CP)->\
+		CHK1(B,B2,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Tran_Off/vol_CP
+				#]
+		#]
+		#Centrosomal Trafficking Rules [
+Note 60:	CHK1(B,B2,im,ep,L~CP,S317~P,S345)<->\
+		CHK1(B,B2,im,ep,L~CS,S317~P,S345)\
+			Chk1_CS_In/vol_CP,Chk1_CS_Out/sa_CS
+		#]
+		#Chk1 Modification of Cdc25a [
+			#Complex Formation [
+Note 61:	CHK1(B,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25a(B,B1,im,ep,L~NU)->\
+		CHK1(B!3,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25a(B!3,B1,im,ep,L~NU)\
+			Chk1_kOn_Basal/vol_NU
+Note 61:	CHK1(B,B2,im,ep,L~CS,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25a(B,B1,im,ep,L~CS)->\
+		CHK1(B!3,B2,im,ep,L~CS,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25a(B!3,B1,im,ep,L~CS)\
+			Chk1_kOn_Basal/sa_CS
+		
+Note 61:	CHK1(B,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25a(B,B1,im,ep,L~NU)->\
+		CHK1(B!3,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25a(B!3,B1,im,ep,L~NU)\
+			Chk1_kOn_Weak/vol_NU
+Note 61:	CHK1(B,B2,im,ep,L~CS,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25a(B,B1,im,ep,L~CS)->\
+		CHK1(B!3,B2,im,ep,L~CS,S280~U,S286~U,S301~P,S317~U,S345~U).CDC25a(B!3,B1,im,ep,L~CS)\
+			Chk1_kOn_Weak/sa_CS
+
+Note 61:	CHK1(B,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25a(B,B1,im,ep,L~NU)->\
+		CHK1(B!3,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25a(B!3,B1,im,ep,L~NU)\
+			Chk1_kOn_Partial/vol_NU
+Note 61:	CHK1(B,B2,im,ep,L~CS,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25a(B,B1,im,ep,L~CS)->\
+		CHK1(B!3,B2,im,ep,L~CS,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25a(B!3,B1,im,ep,L~CS)\
+			Chk1_kOn_Partial/sa_CS
+
+Note 61:	CHK1(B,B2,B345!+,im,ep,L~NU,S301~U,S317~P,S345~P)+CDC25a(B,B1,im,ep,L~NU)->\
+		CHK1(B!3,B2,B345!+,im,ep,L~NU,S301~U,S317~P,S345~P).CDC25a(B!3,B1,im,ep,L~NU)\
+			Chk1_kOn_Active/vol_NU
+Note 61:	CHK1(B,B2,B345!+,im,ep,L~CS,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25a(B,B1,im,ep,L~CS)->\
+		CHK1(B!3,B2,B345!+,im,ep,L~CS,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25a(B!3,B1,im,ep,L~CS)\
+			Chk1_kOn_Active/sa_CS
+			#]
+			#Preferred Phosphorylation Sites [
+Note 61:	CHK1(B!3,B2,im,ep).CDC25a(B!3,B1,im,ep,S76~U)->\
+		CHK1(B,B2,im,ep)+CDC25a(B,B1,im,ep,S76~P)\
+			std_Off
+Note 61:	CHK1(B!3,B2,im,ep).CDC25a(B!3,B1,im,ep,T507~U)->\
+		CHK1(B,B2,im,ep)+CDC25a(B,B1,im,ep,T507~P)\
+			std_Off
+			#]
+			#Secondary Phosphorylation Sites (preferred by Chk2) [
+Note 61:	CHK1(B!3,B2,im,ep).CDC25a(B!3,B1,im,ep,S124~U)->\
+		CHK1(B,B2,im,ep)+CDC25a(B,B1,im,ep,S124~P)\
+			0.01*std_Off
+Note 61:	CHK1(B!3,B2,im,ep).CDC25a(B!3,B1,im,ep,S178~U)->\
+		CHK1(B,B2,im,ep)+CDC25a(B,B1,im,ep,S178~P)\
+			0.01*std_Off
+			#]
+			#Clean-Up Reaction.  This Rule is Sketchy. [
+Note 61:	CHK1(B!3,B2,im,ep).CDC25a(B!3,B1,im,ep,S76~P,S124~P,S178~P,T507~P)->\
+		CHK1(B,B2,im,ep)+CDC25a(B,B1,im,ep,S76~P,S124~P,S178~P,T507~P)\
+			std_Off
+			#]	
+		#]
+		#Chk1 Modification of Cdc25b [
+					#CDC25b S151~P SECTION [
+Note 62:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~U,S345~U) + CDC25b(B,B2,im,ep,L~CP,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~CP,S151~U,S160~U)\
+			Chk1_kOn_Basal/vol_CP
+Note 62:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~U,S345~U) + CDC25b(B,B2,im,ep,L~NU,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~NU,S151~U,S160~U)\
+			Chk1_kOn_Basal/vol_NU
+Note 62:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~U,S345~U) + CDC25b(B,B2,im,ep,L~CS,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~CS,S151~U,S160~U)\
+			Chk1_kOn_Basal/sa_CS
+
+Note 62:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~U) + CDC25b(B,B2,im,ep,L~CP,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~CP,S151~U,S160~U)\
+			Chk1_kOn_Weak/vol_CP
+Note 62:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~U) + CDC25b(B,B2,im,ep,L~NU,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~NU,S151~U,S160~U)\
+			Chk1_kOn_Weak/vol_NU
+Note 62:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~U) + CDC25b(B,B2,im,ep,L~CS,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~CS,S151~U,S160~U)\
+			Chk1_kOn_Weak/sa_CS
+
+Note 62:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~P) + CDC25b(B,B2,im,ep,L~CP,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CP,S151~U,S160~U)\
+			Chk1_kOn_Partial/vol_CP
+Note 62:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~P) + CDC25b(B,B2,im,ep,L~NU,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~NU,S151~U,S160~U)\
+			Chk1_kOn_Partial/vol_NU
+Note 62:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~P) + CDC25b(B,B2,im,ep,L~CS,S151~U,S160~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CS,S151~U,S160~U)\
+			Chk1_kOn_Partial/sa_CS
+
+Note 62:	CHK1(B,B2,B345!+,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~P) + CDC25b(B,B2,im,ep,L~CP,S151~U,S160~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CP,S151~U,S160~U)\
+			0.1*Chk1_kOn_Active/vol_CP
+Note 62:	CHK1(B,B2,B345!+,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~P) + CDC25b(B,B2,im,ep,L~NU,S151~U,S160~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~NU,S151~U,S160~U)\
+			0.1*Chk1_kOn_Active/vol_NU
+Note 62:	CHK1(B,B2,B345!+,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~P) + CDC25b(B,B2,im,ep,L~CS,S151~U,S160~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CS,S151~U,S160~U)\
+			0.1*Chk1_kOn_Active/sa_CS
+			#]
+						#STATE CHANGE [
+Note 62:	CHK1(B!1,B2,im,ep,X~2).CDC25b(B,B2!1,im,ep,S151~U,S160~U)->\
+		CHK1(B,B2,im,ep,X~1)+CDC25b(B,B2,im,ep,S151~P,S160~U)\
+			std_Off
+				#]
+					#CDC25b S230~P SECTION [
+Note 63:	CHK1(B,B2,X~1,im,ep,L~CP,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25b(B,B2,im,ep,L~CP,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~CP,S230~U,S238~U)\
+			Chk1_kOn_Basal/vol_CP
+Note 63:	CHK1(B,B2,X~1,im,ep,L~NU,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25b(B,B2,im,ep,L~NU,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~NU,S230~U,S238~U)\
+			Chk1_kOn_Basal/vol_NU
+Note 63:	CHK1(B,B2,im,X~1,ep,L~CS,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25b(B,B2,im,ep,L~CS,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~CS,S230~U,S238~U)\
+			Chk1_kOn_Basal/sa_CS
+
+Note 63:	CHK1(B,B2,im,X~1,ep,L~CP,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25b(B,B2,im,ep,L~CP,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~CP,S230~U,S238~U)\
+			Chk1_kOn_Weak/vol_CP
+Note 63:	CHK1(B,B2,im,X~1,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25b(B,B2,im,ep,L~NU,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~NU,S230~U,S238~U)\
+			Chk1_kOn_Weak/vol_NU
+Note 63:	CHK1(B,B2,im,X~1,ep,L~CS,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25b(B,B2,im,ep,L~CS,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~CS,S230~U,S238~U)\
+			Chk1_kOn_Weak/sa_CS
+
+Note 63:	CHK1(B,B2,im,X~1,ep,L~CP,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CP,S209~U,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CP,S209~U,S230~U,S238~U)\
+			Chk1_kOn_Partial/vol_CP
+Note 63:	CHK1(B,B2,X~1,im,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~NU,S209~U,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~NU,S209~U,S230~U,S238~U)\
+			Chk1_kOn_Partial/vol_NU
+Note 63:	CHK1(B,B2,X~1,im,ep,L~CS,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CS,S209~U,S230~U,S238~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CS,S209~U,S230~U,S238~U)\
+			Chk1_kOn_Partial/sa_CS
+
+Note 63:	CHK1(B,B2,B345!+,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CP,S209~U,S230~U,S238~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CP,S209~U,S230~U,S238~U)\
+			0.1*Chk1_kOn_Active/vol_CP
+Note 63:	CHK1(B,B2,B345!+,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~NU,S209~U,S230~U,S238~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~NU,S209~U,S230~U,S238~U)\
+			0.1*Chk1_kOn_Active/vol_NU
+Note 63:	CHK1(B,B2,B345!+,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CS,S209~U,S230~U,S238~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CS,S209~U,S230~U,S238~U)\
+			0.1*Chk1_kOn_Active/sa_CS
+		#]
+						#STATE CHANGE [
+Note 63:	CHK1(B!1,B2,im,ep,X~3).CDC25b(B,B2!1,im,ep,S209~U,S230~U,S238~U)->\
+		CHK1(B,B2,im,ep,X~1)+CDC25b(B,B2,im,ep,S209~U,S230~P,S238~U)\
+			std_Off
+				#]
+					#CDC25b S323~P SECTION [
+Note 64:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25b(B,B2,im,ep,L~CP,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~4,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~CP,S321~U,S323~U)\
+			Chk1_kOn_Basal/vol_CP
+Note 64:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25b(B,B2,im,ep,L~NU,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~4,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~NU,S321~U,S323~U)\
+			Chk1_kOn_Basal/vol_NU
+Note 64:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25b(B,B2,im,ep,L~CS,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~4,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25b(B,B2!1,im,ep,L~CS,S321~U,S323~U)\
+			Chk1_kOn_Basal/sa_CS
+
+Note 64:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25b(B,B2,im,ep,L~CP,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~4,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~CP,S321~U,S323~U)\
+			Chk1_kOn_Weak/vol_CP
+Note 64:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25b(B,B2,im,ep,L~NU,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~4,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~NU,S321~U,S323~U)\
+			Chk1_kOn_Weak/vol_NU
+Note 64:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25b(B,B2,im,ep,L~CS,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~4,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25b(B,B2!1,im,ep,L~CS,S321~U,S323~U)\
+			Chk1_kOn_Weak/sa_CS
+
+Note 64:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CP,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~CP,X~4,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CP,S321~U,S323~U)\
+			Chk1_kOn_Partial/vol_CP
+Note 64:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~NU,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~NU,X~4,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~NU,S321~U,S323~U)\
+			Chk1_kOn_Partial/vol_NU
+Note 64:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CS,S321~U,S323~U)->\
+		CHK1(B!1,B2,im,ep,L~CS,X~4,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,ep,L~CS,S321~U,S323~U)\
+			Chk1_kOn_Partial/sa_CS
+
+Note 64:	CHK1(B,B2,B345!+,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CP,S321~U,S323~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~CP,X~4,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,L~CP,ep,S321~U,S323~U)\
+			0.1*Chk1_kOn_Active/vol_CP
+Note 64:	CHK1(B,B2,B345!+,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~NU,S321~U,S323~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~NU,X~4,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,L~NU,ep,S321~U,S323~U)\
+			0.1*Chk1_kOn_Active/vol_NU
+Note 64:	CHK1(B,B2,B345!+,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25b(B,B2,im,ep,L~CS,S321~U,S323~U)->\
+		CHK1(B!1,B2,B345!+,im,ep,L~CS,X~4,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25b(B,B2!1,im,L~CS,ep,S321~U,S323~U)\
+			0.1*Chk1_kOn_Active/sa_CS
+
+Note 64:	CHK1(B!1,B2,im,ep,X~4).CDC25b(B,B2!1,im,ep,S321~U,S323~U)->\
+		CHK1(B,B2,im,ep,X~1)+CDC25b(B,B2,im,ep,S321~U,S323~P)\
+			std_Off
+				#]
+					#THIS SECTION CLEANS UP UNMODIFIABLE COMPLEXES [
+Note 64:	CHK1(B!1,B2,im,ep).CDC25b(B!1,B2,im,ep,S160~P,S238~P,S321~P)->\
+		CHK1(B,B2,im,ep)+CDC25b(B,B2,im,ep,S160~P,S238~P,S321~P)\
+			std_Off
+				#]
+				#]
+		#Chk1 Modifacation of Cdc25c [
+				#S216 Phosphorylation [
+Note 65:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25c(B,B1,im,ep,L~CP,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S216~U)\
+			500*Chk1_kOn_Basal/vol_CP
+Note 65:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25c(B,B1,im,ep,L~NU,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S216~U)\
+			500*Chk1_kOn_Basal/vol_NU
+Note 65:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25c(B,B1,im,ep,L~CS,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S216~U)\
+			500*Chk1_kOn_Basal/sa_CS
+
+Note 65:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25c(B,B1,im,ep,L~CP,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S216~U)\
+			500*Chk1_kOn_Weak/vol_CP
+Note 65:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25c(B,B1,im,ep,L~NU,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S216~U)\
+			500*Chk1_kOn_Weak/vol_NU
+Note 65:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25c(B,B1,im,ep,L~CS,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S216~U)\
+			500*Chk1_kOn_Weak/sa_CS
+
+Note 65:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25c(B,B1,im,ep,L~CP,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S216~U)\
+			500*Chk1_kOn_Partial/vol_CP
+Note 65:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25c(B,B1,im,ep,L~NU,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S216~U)\
+			500*Chk1_kOn_Partial/vol_NU
+Note 65:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25c(B,B1,im,ep,L~CS,S214~U,S216~U)->\
+		CHK1(B!2,B2,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S216~U)\
+			500*Chk1_kOn_Partial/sa_CS
+
+Note 65:	CHK1(B,B2,B345!+,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317,S345~P)+CDC25c(B,B1,im,ep,L~CP,S214~U,S216~U)->\
+		CHK1(B!2,B2,B345!+,im,ep,L~CP,X~2,S280~U,S286~U,S301~U,S317,S345~P).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S216~U)\
+			500*Chk1_kOn_Active/vol_CP
+Note 65:	CHK1(B,B2,B345!+,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317,S345~P)+CDC25c(B,B1,im,ep,L~NU,S214~U,S216~U)->\
+		CHK1(B!2,B2,B345!+,im,ep,L~NU,X~2,S280~U,S286~U,S301~U,S317,S345~P).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S216~U)\
+			500*Chk1_kOn_Active/vol_NU
+Note 65:	CHK1(B,B2,B345!+,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317,S345~P)+CDC25c(B,B1,im,ep,L~CS,S214~U,S216~U)->\
+		CHK1(B!2,B2,B345!+,im,ep,L~CS,X~2,S280~U,S286~U,S301~U,S317,S345~P).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S216~U)\
+			500*Chk1_kOn_Active/sa_CS
+
+Note 65:	CHK1(B!2,B2,im,ep,X~2).CDC25c(B!2,B1,im,ep,S214~U,S216~U)->\
+		CHK1(B,B2,im,ep,X~1)+CDC25c(B,B1,im,ep,S214~U,S216~P)\
+			std_Off
+				#]
+				#S263 Phosphorylation [
+Note 66:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25c(B,B1,im,ep,L~CP,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S263~U)\
+			500*Chk1_kOn_Basal/vol_CP
+Note 66:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25c(B,B1,im,ep,L~NU,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S263~U)\
+			500*Chk1_kOn_Basal/vol_NU
+Note 66:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~U,S345~U)+CDC25c(B,B1,im,ep,L~CS,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317~U,S345~U).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S263~U)\
+			500*Chk1_kOn_Basal/sa_CS
+
+Note 66:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25c(B,B1,im,ep,L~CP,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S263~U)\
+			500*Chk1_kOn_Weak/vol_CP
+Note 66:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25c(B,B1,im,ep,L~NU,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S263~U)\
+			Chk1_kOn_Weak/vol_NU
+Note 66:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~U)+CDC25c(B,B1,im,ep,L~CS,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317~P,S345~U).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S263~U)\
+			500*Chk1_kOn_Weak/sa_CS
+
+Note 66:	CHK1(B,B2,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25c(B,B1,im,ep,L~CP,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S263~U)\
+			500*Chk1_kOn_Partial/vol_CP
+Note 66:	CHK1(B,B2,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25c(B,B1,im,ep,L~NU,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S263~U)\
+			500*Chk1_kOn_Partial/vol_NU
+Note 66:	CHK1(B,B2,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317~P,S345~P)+CDC25c(B,B1,im,ep,L~CS,S214~U,S263~U)->\
+		CHK1(B!2,B2,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317~P,S345~P).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S263~U)\
+			500*Chk1_kOn_Partial/sa_CS
+
+Note 66:	CHK1(B,B2,B345!+,im,ep,L~CP,X~1,S280~U,S286~U,S301~U,S317,S345~P)+CDC25c(B,B1,im,ep,L~CP,S214~U,S263~U)->\
+		CHK1(B!2,B2,B345!+,im,ep,L~CP,X~3,S280~U,S286~U,S301~U,S317,S345~P).CDC25c(B!2,B1,im,ep,L~CP,S214~U,S263~U)\
+			500*Chk1_kOn_Active/vol_CP
+Note 66:	CHK1(B,B2,B345!+,im,ep,L~NU,X~1,S280~U,S286~U,S301~U,S317,S345~P)+CDC25c(B,B1,im,ep,L~NU,S214~U,S263~U)->\
+		CHK1(B!2,B2,B345!+,im,ep,L~NU,X~3,S280~U,S286~U,S301~U,S317,S345~P).CDC25c(B!2,B1,im,ep,L~NU,S214~U,S263~U)\
+			500*Chk1_kOn_Active/vol_NU
+Note 66:	CHK1(B,B2,B345!+,im,ep,L~CS,X~1,S280~U,S286~U,S301~U,S317,S345~P)+CDC25c(B,B1,im,ep,L~CS,S214~U,S263~U)->\
+		CHK1(B!2,B2,B345!+,im,ep,L~CS,X~3,S280~U,S286~U,S301~U,S317,S345~P).CDC25c(B!2,B1,im,ep,L~CS,S214~U,S263~U)\
+			500*Chk1_kOn_Active/sa_CS
+
+Note 66:	CHK1(B!2,B2,im,ep,X~3).CDC25c(B!2,B1,im,ep,S214~U,S263~U)->\
+		CHK1(B,B2,im,ep,X~1)+CDC25c(B,B1,im,ep,S214~U,S263~P)\
+			std_Off
+				#]
+				#Clean-Up Rule [
+Note 66:	CHK1(B!2).CDC25c(B!2,im,ep,S216~P,S263~P)->\
+		CHK1(B)+CDC25c(B,im,ep,S216~P,S263~P)\
+			std_Off
+			#]
+	#]
+		# CHK1 Modification of Nek11 [
+Note 67:	CHK1(B,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~P)+NEK11(B,im,ep,T273~U)->\
+		CHK1(B!4,B2,im,ep,L~NU,S280~U,S286~U,S301~U,S317~P,S345~P).NEK11(B!4,im,ep,T273~U)\
+			Chk1_kOn_Partial/vol_NU
+		
+Note 67:	CHK1(B,B2,B345!+,im,ep,L~NU,S301~U,S317~P,S345~P)+NEK11(B,im,ep,T273~U)->\
+		CHK1(B!4,B2,B345!+,im,ep,L~NU,S301~U,S317~P,S345~P).NEK11(B!4,im,ep,T273~U)\
+			Chk1_kOn_Active/vol_NU
+		
+Note 67:	CHK1(B!4,B2,im,ep,L~NU).NEK11(B!4,im,ep,T273~U)->\
+		CHK1(B,B2,im,ep,L~NU)+NEK11(B,im,ep,T273~P)\
+			std_Off
+		#]
+	#]
+#	CHK2 [
+		#CHK2 Synthesis and Destruction [
+Note 44:	DUM(C)->\
+		DUM(C)+CHK2(B,B2,im,ep,L~CP,X~1,T26~U,S33~U,S62~U,T68~U,S73~U,S120~U,S260~U,S379~U,T383~U,T387~U,T389~U,S516~U)\
+			Chk2_Syn/vol_CP
+Note 45:	DUM(C)+CHK2(L~CP,im,ep)->\
+		DUM(C)\
+			Chk2_Deg/vol_CP
+	#]
+		#CHK2 Spontaneous Phosphorylation and Dephosphorylation [
+Note 46:	DUM(C)+CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,S62~U,T68~U,S73~U,S120~U,S260~U,S379~U,T383~U,T387~U,T389~U,S516~U)->\
+		DUM(C)+CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,S62~U,T68~P,S73~U,S120~U,S260~U,S379~U,T383~U,T387~U,T389~P,S516~U)\
+			Chk2_p68_On/vol_NU
+
+Note 46:	DUM(C)+CHK2(B,B2,im,ep,L,T26,S33,S62,T68,S73,S120,S260,S379,T383,T387,T389,S516)->\
+		DUM(C) + CHK2(B,B2,im,ep,L,T26~U,S33~U,S62~U,T68~U,S73~U,S120~U,S260~U,S379~U,T383~U,T387~U,T389~U,S516~U)\
+			Chk2_Phos_Off/vol_NU
+	#]
+		#Chk2 Nucleo-Cytoplasmic Transport [
+			#Nuclear Import [
+Note 47:	CHK2(B,B2,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		CHK2(B,B2,im!8,ep,L~CP).Importin(im!8,np,L~CP)\
+			Chk2_Import/vol_CP
+Note 47:	CHK2(B,B2,im!8,ep,L~CP).Importin(im!8,np!+,L~NU)->\
+		CHK2(B,B2,im,ep,L~NU)+Importin(im,np!+,L~NU)\
+			std_Tran_Off/vol_NU
+		#]
+			#Nuclear Export [
+Note 48:	CHK2(B,B2,im,ep,L~NU)+CRM1(ep,np,L~NU)->\
+		CHK2(B,B2,im,ep!8,L~NU).CRM1(ep!8,np,L~NU)\
+			Chk2_Export/vol_NU
+Note 48:	CHK2(B,B2,im,ep!8,L~NU).CRM1(ep!8,np!+,L~CP)->\
+		CHK2(B,B2,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Tran_Off/vol_CP
+		#]
+	#]
+		#Chk2 Auto-Activation Feed-Forward Loop [
+Note 49:	CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~U,T387~U,T389~P,S516~U)+CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~U,T387~U,T389~P,S516~U)->\
+		CHK2(B!0,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~U,T387~U,T389~P,S516~U).CHK2(B!0,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~U,T387~U,T389~P,S516~U)\
+			Chk2_Activate/vol_NU
+			#TRANS Phosphorylation - This Reaction is Favored over CIS. [
+Note 49:	CHK2(B!0,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~U,T387~U,T389~P,S516~U).CHK2(B!0,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~U,T387~U,T389~P,S516~U)->\
+		CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~U)+CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~U)\
+			std_Off/vol_NU
+		#]
+			#CIS Phosphorylation [
+Note 49:	CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~U)->\
+		CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)\
+			0.003/vol_NU
+		#]
+	#]
+		#Chk2 Modification of Cdc25a [
+Note 50:	CHK2(B,B2,im,ep,L~NU)+CDC25a(B,B1,im,ep,L~NU,S124,S178)->\
+		CHK2(B!1,B2,im,ep,L~NU).CDC25a(B!1,B1,im,ep,L~NU,S124,S178)\
+			Chk2_kOn_Basal/vol_NU
+Note 50:	CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~U)+CDC25a(B,B1,im,ep,L~NU,S124,S178)->\
+		CHK2(B!1,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~U).CDC25a(B!1,B1,im,ep,L~NU,S124,S178)\
+			Chk2_kOn_Partial/vol_NU
+Note 50:	CHK2(B,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25a(B,B1,im,ep,L~NU,S124,S178)->\
+		CHK2(B!1,B2,im,ep,L~NU,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25a(B!1,B1,im,ep,L~NU,S124,S178)\
+			Chk2_kOn_Active/vol_NU
+		
+		#State Change
+Note 50:	CHK2(B!1,B2,im,ep,L~NU).CDC25a(B!1,B1,im,ep,L~NU,S124~U,S178)->\
+		CHK2(B,B2,im,ep,L~NU)+CDC25a(B,B1,im,ep,L~NU,S124~P,S178)\
+			std_Off/vol_NU
+Note 50:	CHK2(B!1,B2,im,ep,L~NU).CDC25a(B!1,B1,im,ep,L~NU,S124,S178~U)->\
+		CHK2(B,B2,im,ep,L~NU)+CDC25a(B,B1,im,ep,L~NU,S124,S178~P)\
+			std_Off/vol_NU
+		
+		#Cleanup Rule
+Note 50:	CHK2(B!1,B2,im,ep,L~NU).CDC25a(B!1,B1,im,ep,L~NU,S124~P,S178~P)->\
+		CHK2(B,B2,im,ep,L~NU)+CDC25a(B,B1,im,ep,L~NU,S124~P,S178~P)\
+			std_Off/vol_NU
+	#]
+		#Chk2 Modification of Cdc25b [
+				#S151 Phosphorylation [
+Note 51:	CHK2(B,B2,im,ep,L~NU,X~1)+CDC25b(B,B2,im,ep,L~NU,S151~U,S160~U)->\
+		CHK2(B!2,B2,im,ep,L~NU,X~2).CDC25b(B!2,B2,im,ep,L~NU,S151~U,S160~U)\
+			Chk2_kOn_Basal/vol_NU
+Note 51:	CHK2(B,B2,im,ep,L~CS,X~1)+CDC25b(B,B2,im,ep,L~CS,S151~U,S160~U)->\
+		CHK2(B!2,B2,im,ep,L~CS,X~2).CDC25b(B!2,B2,im,ep,L~CS,S151~U,S160~U)\
+			Chk2_kOn_Basal/sa_CS
+Note 51:	CHK2(B,B2,im,ep,L~NU,X~1,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25b(B,B2,im,ep,L~NU,S151~U,S160~U)->\
+		CHK2(B!2,B2,im,ep,L~NU,X~2,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25b(B!2,B2,im,ep,L~NU,S151~U,S160~U)\
+			Chk2_kOn_Active/vol_NU
+Note 51:	CHK2(B,B2,im,ep,L~CS,X~1,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25b(B,B2,im,ep,L~CS,S151~U,S160~U)->\
+		CHK2(B!2,B2,im,ep,L~CS,X~2,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25b(B!2,B2,im,ep,L~CS,S151~U,S160~U)\
+			Chk2_kOn_Active/sa_CS
+		
+				#State Change
+Note 51:	CHK2(B!2,B2,im,ep,X~2).CDC25b(B!2,B2,im,ep,S151~U,S160~U)->\
+		CHK2(B,B2,im,ep,X~1)+CDC25b(B,B2,im,ep,S151~P,S160~U)\
+			std_Off
+				#]
+				#S230 Phosphorylation [
+Note 52:	CHK2(B,B2,im,ep,L~NU,X~1)+CDC25b(B,B2,im,ep,L~NU,S230~U,S238~U)->\
+		CHK2(B!2,B2,im,ep,L~NU,X~3).CDC25b(B!2,B2,im,ep,L~NU,S230~U,S238~U)\
+			Chk2_kOn_Basal/vol_NU
+Note 52:	CHK2(B,B2,im,ep,L~CS,X~1)+CDC25b(B,B2,im,ep,L~CS,S230~U,S238~U)->\
+		CHK2(B!2,B2,im,ep,L~CS,X~3).CDC25b(B!2,B2,im,ep,L~CS,S230~U,S238~U)\
+			Chk2_kOn_Basal/sa_CS
+			
+Note 52:	CHK2(B,B2,im,ep,L~CS,X~1,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25b(B,B2,im,ep,L~CS,S230~U,S238~U)->\
+		CHK2(B!2,B2,im,ep,L~CS,X~3,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25b(B!2,B2,im,ep,L~CS,S230~U,S238~U)\
+			Chk2_kOn_Active/sa_CS
+Note 52:	CHK2(B,B2,im,ep,L~NU,X~1,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25b(B,B2,im,ep,L~NU,S230~U,S238~U)->\
+		CHK2(B!2,B2,im,ep,L~NU,X~3,T26~U,S33~U,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25b(B!2,B2,im,ep,L~NU,S230~U,S238~U)\
+			Chk2_kOn_Active/vol_NU
+		
+				#State Change
+Note 52:	CHK2(B!2,B2,im,ep,X~3).CDC25b(B!2,B2,im,ep,S230~U,S238~U)->\
+		CHK2(B,B2,im,ep,X~1)+CDC25b(B,B2,im,ep,S230~P,S238~U)\
+			std_Off
+				#]
+				#S323 Phosphorylation [
+Note 53:	CHK2(B,B2,im,ep,L~NU,X~1)+CDC25b(B,B2,im,ep,L~NU,S321~U,S323~U)->\
+		CHK2(B!2,B2,im,ep,L~NU,X~4).CDC25b(B!2,B2,im,ep,L~NU,S321~U,S323~U)\
+			Chk2_kOn_Basal/vol_NU
+Note 53:	CHK2(B,B2,im,ep,L~CS,X~1)+CDC25b(B,B2,im,ep,L~CS,S321~U,S323~U)->\
+		CHK2(B!2,B2,im,ep,L~CS,X~4).CDC25b(B!2,B2,im,ep,L~CS,S321~U,S323~U)\
+			Chk2_kOn_Basal/sa_CS
+
+Note 53:	CHK2(B,B2,im,ep,L~NU,X~1,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25b(B,B2,im,ep,L~NU,S321~U,S323~U)->\
+		CHK2(B!2,B2,im,ep,L~NU,X~4,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25b(B!2,B2,im,ep,L~NU,S321~U,S323~U)\
+			Chk2_kOn_Active/vol_NU
+Note 53:	CHK2(B,B2,im,ep,L~CS,X~1,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25b(B,B2,im,ep,L~CS,S321~U,S323~U)->\
+		CHK2(B!2,B2,im,ep,L~CS,X~4,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25b(B!2,B2,im,ep,L~CS,S321~U,S323~U)\
+			Chk2_kOn_Active/sa_CS
+				#State Change
+Note 53:	CHK2(B!2,B2,im,ep,X~4,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25b(B!2,B2,im,ep,S321~U,S323~U)->\
+		CHK2(B,B2,im,ep,X~1,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25b(B,B2,im,ep,S321~U,S323~P)\
+			std_Off
+				#]
+	#]
+		#CHK2 Modification of Cdc25c [
+				#S216 Phosphorylation [
+Note 54:	CHK2(B,B2,im,ep,L~CP,X~1)+CDC25c(B,B1,im,ep,L~CP,S214~U,S216~U)->\
+		CHK2(B!3,B2,im,ep,L~CP,X~2).CDC25c(B!3,B1,im,ep,L~CP,S214~U,S216~U)\
+			500*Chk2_kOn_Basal/vol_CP
+Note 54:	CHK2(B,B2,im,ep,L~NU,X~1)+CDC25c(B,B1,im,ep,L~NU,S214~U,S216~U)->\
+		CHK2(B!3,B2,im,ep,L~NU,X~2).CDC25c(B!3,B1,im,ep,L~CP,S214~U,S216~U)\
+			500*Chk2_kOn_Basal/vol_NU
+Note 54:	CHK2(B,B2,im,ep,L~CP,X~1,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25c(B,B1,im,ep,L~CP,S214~U,S216~U)->\
+		CHK2(B!3,B2,im,ep,L~CP,X~2,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25c(B!3,B1,im,ep,L~CP,S214~U,S216~U)\
+			500*Chk2_kOn_Active/vol_CP
+Note 54:	CHK2(B,B2,im,ep,L~NU,X~1,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25c(B,B1,im,ep,L~NU,S214~U,S216~U)->\
+		CHK2(B!3,B2,im,ep,L~NU,X~2,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25c(B!3,B1,im,ep,L~NU,S214~U,S216~U)\
+			500*Chk2_kOn_Active/vol_NU
+
+				#State Change
+Note 54:	CHK2(B!3,B2,im,ep,X~2).CDC25c(B!3,B1,im,ep,S214~U,S216~U)->\
+		CHK2(B,B2,im,ep,X~1)+CDC25c(B,B1,im,ep,S214~U,S216~P)\
+			std_Off
+				#]
+				#S263 Phosphorylation [
+Note 55:	CHK2(B,B2,im,ep,L~CP,X~1)+CDC25c(B,B1,im,ep,L~CP,S214~U,S263~U)->\
+		CHK2(B!3,B2,im,ep,L~CP,X~3).CDC25c(B!3,B1,im,ep,L~CP,S214~U,S263~U)\
+			500*Chk2_kOn_Basal/vol_CP
+Note 55:	CHK2(B,B2,im,ep,L~NU,X~1)+CDC25c(B,B1,im,ep,L~NU,S214~U,S263~U)->\
+		CHK2(B!3,B2,im,ep,L~NU,X~3).CDC25c(B!3,B1,im,ep,L~CP,S214~U,S263~U)\
+			500*Chk2_kOn_Basal/vol_NU
+Note 55:	CHK2(B,B2,im,ep,L~CP,X~1,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25c(B,B1,im,ep,L~CP,S214~U,S263~U)->\
+		CHK2(B!3,B2,im,ep,L~CP,X~3,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25c(B!3,B1,im,ep,L~CP,S214~U,S263~U)\
+			500*Chk2_kOn_Active/vol_CP
+Note 55:	CHK2(B,B2,im,ep,L~NU,X~1,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P)+CDC25c(B,B1,im,ep,L~NU,S214~U,S263~U)->\
+		CHK2(B!3,B2,im,ep,L~NU,X~3,T26~U,S33~U,T68~P,S120~U,S260~U,S379~U,T383~P,T387~P,T389~P,S516~P).CDC25c(B!3,B1,im,ep,L~NU,S214~U,S263~U)\
+			500*Chk2_kOn_Active/vol_NU
+		
+				#State Change
+Note 55:	CHK2(B!3,B2,im,ep,X~3).CDC25c(B!3,B1,im,ep,S214~U,S263~U)->\
+		CHK2(B,B2,im,ep,X~1)+CDC25c(B,B1,im,ep,S214~U,S263~P)\
+			std_Off
+				#]
+	#]
+ #]
+#	NEK11 [
+		#NEK11 Spontaneous Dephosphorylation [
+Note 42:	NEK11(B,im,ep,L~NU,T273~P)+DUM(C)->\
+		NEK11(B,im,ep,L~NU,T273~U)+DUM(C)\
+			Nek11_Dephos/vol_NU
+	#]
+		#NEK11 Modification of Cdc25a [
+#BEST BE CHECKING THIS CODE, DECEMBER 20, 2012.
+Note 43:	NEK11(B,im,ep,T273~U)+CDC25a(B,B1,im,ep,L~NU,S76,S82~U,S88~U)->\
+		NEK11(B!0,im,ep,T273~U).CDC25a(B!0,B1,im,ep,L~NU,S76,S82~U,S88~U)\
+			Nek11_kOn_Basal/vol_NU
+Note 43:	NEK11(B,im,ep,T273~P)+CDC25a(B,B1,im,ep,L~NU,S76,S82~U,S88~U)->\
+		NEK11(B!0,im,ep,T273~P).CDC25a(B!0,B1,im,ep,L~NU,S76,S82~U,S88~U)\
+			Nek11_kOn_Active/vol_NU
+Note 43:	NEK11(B!0,im,ep,T273).CDC25a(B!0,B1,im,ep,L~NU,S76,S82~U,S88~U)->\
+		NEK11(B,im,ep,T273)+CDC25a(B,B1,im,ep,L~NU,S76,S82~P,S88~P)\
+			std_Off/vol_NU
+		#]
+	#]
+#	CDC25a [
+		#Cdc25a Synthesis [
+Note 34:	DUM(C)->\
+		DUM(C)+CDC25a(B,B1,im,ep,L~CP,S18~U,S76~U,S82~U,S88~U,S116~U,S124~U,S178~U,T507~U)\
+			Cdc25a_Synthesis/vol_CP
+	#]
+		#Cdc25a is primarily nuclear but cycles through the cytoplasm.  93%-95% nuclear at the beginning of G2 down to ~85% by mitosis. [
+				#Export [
+Note 38:	CDC25a(B,B1,im,ep,L~NU)+CRM1(ep,np,L~NU)->\
+		CDC25a(B,B1,im,ep!3,L~NU).CRM1(ep!3,np,L~NU)\
+			0.5*Cdc25a_Export/vol_NU
+Note 38:	CDC25a(B,B1,im,ep!3,L~NU).CRM1(ep!3,np!+,L~CP)->\
+		CDC25a(B,B1,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Off/vol_CP
+			#]
+				#Import [
+Note 39:	CDC25a(B,B1,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		CDC25a(B,B1,im!3,ep,L~CP).Importin(im!3,np,L~CP)\
+			Cdc25a_Import/vol_CP
+Note 39:	CDC25a(B,B1,im!3,ep,L~CP).Importin(im!3,np!+,L~NU)->\
+		CDC25a(B,B1,im,ep,L~NU)+Importin(im,np,L~NU)\
+			std_Off/vol_NU
+			#]
+	#]
+		#Centrosomal Trafficking Rules [
+Note 40:	CDC25a(B,B1,im,ep,L~CP,S124~U)<->\
+		CDC25a(B,B1,im,ep,L~CS,S124~U)\
+			Cdc25a_CS_in_1/vol_CP,Cdc25a_CS_out/sa_CS
+Note 40:	CDC25a(B,B1,im,ep,L~CS,S124~P)->\
+		CDC25a(B,B1,im,ep,L~CP,S124~P)\
+			Cdc25a_CS_in_1/sa_CS
+	#]
+		#Cdc25a Partial activation of B/K1 [
+Note 41:	CDC25a(B,B1,im,ep,L~CS,S178~U,T507~U)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+		CDC25a(B!2,B1,im,ep,L~CS,S178~U,T507~U).CDK1(Bc!0,B2!2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			0.01*Cdc25a_kOn_Active/sa_CS
+Note 41:	CDC25a(B,B1,im,ep,L~NU,S178~U,T507~U)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+		CDC25a(B!2,B1,im,ep,L~NU,S178~U,T507~U).CDK1(Bc!0,B2!2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+			0.01*Cdc25a_kOn_Active/vol_NU
+Note 41:	CDC25a(B!2,B1,im,ep).CDK1(Bc!0,B2!2,T14~P).CCNB1(B!0,B1,B2,im,ep)->\
+		CDC25a(B,B1,im,ep)+CDK1(Bc!0,B2,T14~U).CCNB1(B!0,B1,B2,im,ep)\
+			std_Off
+	#]
+ #]
+#	Cdc25b [
+		#Cdc25b Synthesis [
+Note 32:	DUM(C)->\
+		DUM(C)+CDC25b(B,B2,B151,B230,B323,im,ep,L~CP,T50~U,S151~U,S160~U,T167~U,S209~U,S230~U,S238~U,S321~U,S323~U,S353~U,S375~U,S563~U)\
+			Cdc25b_Synthesis/vol_CP
+		#]
+		#Cdc25b Spontaneous Dephosphorylation [
+#Note 26:	DUM(C)+CDC25b(B,B2,im,ep,L~NU,S151~P)->\
+#		DUM(C)+CDC25b(B,B2,im,ep,L~NU,S151~U)\
+#			0*Cdc25b_Dephos/vol_NU
+#Note 26:	DUM(C)+CDC25b(B,B2,im,ep,L~NU,S230~P)->\
+#		DUM(C)+CDC25b(B,B2,im,ep,L~NU,S230~U)\
+#			0*Cdc25b_Dephos/vol_NU
+#Note 26:	DUM(C)+CDC25b(B,B2,im,ep,L~NU,S323~P)->\
+#		DUM(C)+CDC25b(B,B2,im,ep,L~NU,S323~U)\
+#			0*Cdc25b_Dephos_2/vol_NU
+	#]
+		#Cdc25b is primarily nuclear but cycles rapidly between cytoplasm and nucleus. [
+					#Export [
+Note 27:	CDC25b(B,B2,B151,B230,im,ep,L~NU)+CRM1(ep,np,L~NU)->\
+		CDC25b(B,B2,B151,B230,im,ep!5,L~NU).CRM1(ep!5,np,L~NU)\
+			Cdc25b_Export_3/vol_NU
+			
+Note 27:	CDC25b(B,B2,B230!+,im,ep,L~NU)+CRM1(ep,np,L~NU)->\
+		CDC25b(B,B2,B230!+,im,ep!5,L~NU).CRM1(ep!5,np,L~NU)\
+			Cdc25b_Export_1/vol_NU
+Note 27:	CDC25b(B,B2,B151!+,im,ep,L~NU)+CRM1(ep,np,L~NU)->\
+		CDC25b(B,B2,B151!+,im,ep!5,L~NU).CRM1(ep!5,np,L~NU)\
+			Cdc25b_Export_1/vol_NU
+
+Note 27:	CDC25b(B,B2,im,ep!5,L~NU).CRM1(ep!5,np!+,L~CP)->\
+		CDC25b(B,B2,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Tran_Off/vol_CP
+				#]
+					#Import [
+Note 28:	CDC25b(B,B2,B323,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		CDC25b(B,B2,B323,im!5,ep,L~CP).Importin(im!5,np,L~CP)\
+			Cdc25b_Import_2/vol_CP
+Note 28:	CDC25b(B,B2,B323!+,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		CDC25b(B,B2,B323!+,im!5,ep,L~CP).Importin(im!5,np,L~CP)\
+			Cdc25b_Import_1/vol_CP
+			
+Note 28:	CDC25b(B,B2,im!5,ep,L~CP).Importin(im!5,np!+,L~NU)->\
+		CDC25b(B,B2,im,ep,L~NU)+Importin(im,np!+,L~NU)\
+			std_Tran_Off/vol_NU
+				#]
+	#]
+		#Centrosomal Trafficking Rules [
+Note 29:	CDC25b(B,B2,im,ep,L~CP)<->\
+		CDC25b(B,B2,im,ep,L~CS)\
+			Cdc25b_CS_in/vol_CP,Cdc25b_CS_out/sa_CS
+	#]
+		#Cdc25b partial activation of B/K1 [
+				#Activity  [
+#CDC25b is not thought to be very active when in its unphosphorylated state.  This section is unlikely to be needed so rules are commented out.
+#Astuti et al say that 14-3-3 bound to S321 is inhibitory and interferes with S320 phosphorylation.  S320 requires fully active MPF if 14-3-3 is bound.  This
+#site is the high affinity 14-3-3 binding site.  S151 is inhibitory.  Active site is near S323.  Need to change this section.  S323 plus S151 OR S230 is inactive.  S323
+#alone is only partially active.  All three effect intracellular transport.  Normal condition is 60% nuclear.
+				#]
+				#Weak or Partial Activity [
+Note 31:	CDC25b(B,B2,B151,B230,B323!+,im,ep,L~CS)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+		CDC25b(B,B2!3,B151,B230,B323!+,im,ep,L~CS).CDK1(Bc!0,B2!3,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			Cdc25b_kOn_Weak/sa_CS
+Note 31:	CDC25b(B,B2,B151,B230,B323!+,im,ep,L~NU)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+		CDC25b(B,B2!3,B151,B230,B323!+,im,ep,L~NU).CDK1(Bc!0,B2!3,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+			Cdc25b_kOn_Weak/vol_NU
+				#]
+				#S99~P [
+#Note 31:	CDC25b(B,B2,im,ep,L~CS)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+#		CDC25b(B,B2!3,im,ep,L~CS).CDK1(Bc!0,B2!3,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+#			0*Cdc25b_kOn_Active/sa_CS
+#Note 31:	CDC25b(B,B2,im,ep,L~NU)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+#		CDC25b(B,B2!3,im,ep,L~NU).CDK1(Bc!0,B2!3,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+#			0*Cdc25b_kOn_Active/vol_NU
+				#]
+				#Fully Active [
+Note 31:	CDC25b(B,B2,B323,im,ep,L~CS)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+		CDC25b(B,B2!3,B323,im,ep,L~CS).CDK1(Bc!0,B2!3,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			Cdc25b_kOn_Partial/sa_CS
+Note 31:	CDC25b(B,B2,B323,im,ep,L~NU)+CDK1(Bc!0,B2,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+		CDC25b(B,B2!3,B323,im,ep,L~NU).CDK1(Bc!0,B2!3,B3,T14~P).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+			Cdc25b_kOn_Partial/vol_NU
+				#]
+				#STATE CHANGE [
+Note 31:	CDC25b(B,B2!3,im,ep).CDK1(Bc!0,B2!3,B3,T14~P).CCNB1(B!0,B1,B2,im,ep)->\
+		CDC25b(B,B2,im,ep)+CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)\
+			std_Off
+				#]
+	#]
+ #]
+#	Cdc25c [
+		#Cdc25c Synthesis and Destruction [
+Note 37:	DUM(C)->\
+		DUM(C)+CDC25c(B,B1,B216,B263,im,ep,L~NU,Pin~U,T130~U,S168~U,S191~U,S198~U,S214~U,S216~U,T236~U,S263~U,S285~U,S287~U)\
+			Cdc25c_Synthesis/vol_CP
+Note 21:	DUM(C)+CDC25c(B,B1,B216,B263,im,ep,L~CP)->\
+		DUM(C)\
+			Cdc25c_Degrade/vol_CP	#T1/2 is ~4 hours  #]
+		#Cdc25c Nucleo-Cytoplasmic Transport [
+				#IMPORT [
+Note 22:	CDC25c(B,B1,im,ep,L~CP,S216,S263)+Importin(im,np,L~CP)->\
+		CDC25c(B,B1,im!6,ep,L~CP,S216,S263).Importin(im!6,np,L~CP)\
+			Cdc25c_Import_2/vol_CP
+Note 22:	CDC25c(B,B1,B216!+,B263!+,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		CDC25c(B,B1,B216!+,B263!+,im!6,ep,L~CP).Importin(im!6,np,L~CP)\
+			Cdc25c_Import_1/vol_CP
+
+#Note 22:	CDC25c(B,B1,B216!+,im,ep,L~CP)+Importin(im,np,L~CP)->\
+#		CDC25c(B,B1,B216!+,im!6,ep,L~CP).Importin(im!6,np,L~CP)\
+#			Cdc25c_Import_1/vol_CP
+#Note 22:	CDC25c(B,B1,B216!+,B263!?,im,ep,L~CP,S216~P,S263~P)+Importin(im,np,L~CP)->\
+#		CDC25c(B,B1,B216!+,B263!?,im!6,ep,L~CP,S216~P,S263~P).Importin(im!6,np,L~CP)\
+#			Cdc25c_Import_3/vol_CP
+
+Note 22:	CDC25c(B,B1,im!6,ep,L~CP).Importin(im!6,np!+,L~NU)->\
+		CDC25c(B,B1,im,ep,L~NU)+Importin(im,np!+,L~NU)\
+			std_Off/vol_NU #]
+				#EXPORT [
+Note 23:	CDC25c(B,B1,im,ep,L~NU,S168~U,S191~U,S198~U)+CRM1(ep,np,L~NU)->\
+		CDC25c(B,B1,im,ep!6,L~NU,S168~U,S191~U,S198~U).CRM1(ep!6,np,L~NU)\
+			Cdc25c_Export_2/vol_NU
+Note 23:	CDC25c(B,B1,im,ep,L~NU,S168~U,S191~P,S198~P)+CRM1(ep,np,L~NU)->\
+		CDC25c(B,B1,im,ep!6,L~NU,S168~U,S191~P,S198~P).CRM1(ep!6,np,L~NU)\
+			Cdc25c_Export_1/vol_NU
+
+Note 23:	CDC25c(B,B1,im,ep!6,L~NU).CRM1(ep!6,np!+,L~CP)->\
+		CDC25c(B,B1,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Off/vol_CP	#]
+		#]
+		#Centrosomal Trafficking Rules [
+Note 24:	CDC25c(B,B1,im,ep,L~CP)<->\
+		CDC25c(B,B1,im,ep,L~CS)\
+			Cdc25c_CS_in/vol_CP,Cdc25c_CS_out_1/sa_CS
+Note 24:	CDC25c(B,B1,im,ep,L~CP,S168~P)<->\
+		CDC25c(B,B1,im,ep,L~CS,S168~P)\
+			Cdc25c_CS_in/vol_CP,Cdc25c_CS_out_2/sa_CS
+	#]
+		#Cdc25c Modification of Cdk1 [
+			#Basel Activity of CDC25c [
+Note 25:	CDC25c(B,B1,im,ep,L~CS,Pin~U,S214~U,S216~U)+CDK1(Bc!0,B2,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+		CDC25c(B!5,B1,im,ep,L~CS,Pin~U,S214~U,S216~U).CDK1(Bc!0,B2!5,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			Cdc25c_kOn_Basal/sa_CS
+Note 25:	CDC25c(B,B1,im,ep,L~NU,Pin~U,S214~U,S216~U)+CDK1(Bc!0,B2,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+		CDC25c(B!5,B1,im,ep,L~NU,Pin~U,S214~U,S216~U).CDK1(Bc!0,B2!5,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+			Cdc25c_kOn_Basal/vol_NU
+		#]
+			#Fully Active CDC25c [
+Note 25:	CDC25c(B,B1,B216,im,ep,L~CS,Pin~U,S214~P)+CDK1(Bc!0,B2,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+		CDC25c(B!5,B1,B216,im,ep,L~CS,Pin~U,S214~P).CDK1(Bc!0,B2!5,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			Cdc25c_kOn_Active/sa_CS
+Note 25:	CDC25c(B,B1,B216,im,ep,L~NU,Pin~U,S214~P)+CDK1(Bc!0,B2,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+		CDC25c(B!5,B1,B216,im,ep,L~CS,Pin~U,S214~P).CDK1(Bc!0,B2!5,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+			Cdc25c_kOn_Active/vol_NU
+		#]
+			#State Change of CDK1 [
+Note 25:	CDC25c(B!5,B1,im,ep).CDK1(Bc!0,B2!5,B3,Y15~P).CCNB1(B!0,B1,B2,im,ep)->\
+		CDC25c(B,B1,im,ep)+CDK1(Bc!0,B2,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep)\
+			std_Off
+		#]
+			#Section to clean up any dead-end complexes [
+Note 25:	CDC25c(B!5,B1,im,ep,S168~P,S214~P).CDK1(Bc!0,B2!5,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep)->\
+		CDC25c(B,B1,im,ep,S168~P,S214~P)+CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep)\
+			std_Off #]
+		#]
+	#]
+#	CAK1 [
+	#CDK1 Phosphorylation [
+Note 2:	CAK1(B,L~NU)+CDK1(Bc!0,B2,B3,T161~U).CCNB1(B!0,im,ep,L~NU)->\
+			CAK1(B!1,L~NU).CDK1(Bc!0,B2!1,B3,T161~U).CCNB1(B!0,im,ep,L~NU)\
+				CAK1_kOn
+Note 2:	CAK1(B!1,L~NU).CDK1(Bc!0,B2!1,B3,T161~U).CCNB1(B!0,im,ep,L~NU)->\
+			CAK1(B,L~NU)+CDK1(Bc!0,B2,B3,T161~P).CCNB1(B!0,im,ep,L~NU)\
+				std_Off
+	#]
+ #]
+#	CCNB1 [
+		#CCNB1 Rules for Synthesis and Destruction [
+Note 33:	DUM(C)->\
+		DUM(C)+CCNB1(B,B1,B2,im,ep,L~CP,S126~U,S128~U,S133~U,S147~U)\
+			CCNB1_Synthesis/vol_CP
+Note 1:	DUM(C)+CCNB1(im,ep,L~CP)->\
+		DUM(C)\
+			0*CCNB1_Deg_Slow/vol_CP
+		
+Note 1:	DUM(C)+CCNB1(B,B1,B2,im,ep,L~CP)->\
+		DUM(C)\
+			CCNB1_Deg_Slow/vol_CP
+	#]
+ #]
+#	CDK1/CCNB1 [
+		#Cdk1/CyclinB1 Complex Formation [
+Note 3:	CDK1(Bc,B2,B3,T161~U)+CCNB1(B,im,ep)<->\
+		CDK1(Bc!0,B2,B3,T161~U).CCNB1(B!0,im,ep)\
+				CCNB1_On_1/vol_CP,CCNB1_Off/vol_CP
+	#]
+		#Cdk1/CCNB1 Nucleo-Cytoplasmic Transport [
+				#Import [
+Note 4:	CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im!4,ep,L~CP).Importin(im!4,np,L~CP)\
+			MPF_Import/vol_CP
+Note 4:	CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im!4,ep,L~CP).Importin(im!4,np!+,L~NU)->\
+		CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~NU)+Importin(im,np!+,L~NU)\
+			std_Tran_Off/vol_NU
+				#]
+				#Fast Transport [
+Note 5:	CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~CP)+NucPore(B,cdk1~P)->\
+		CDK1(Bc!0,B2!7,B3).CCNB1(B!0,B1,B2,im,ep,L~CP).NucPore(B!7,cdk1~P)\
+			0*MPF_Import_Fast/vol_CP
+Note 5:	CDK1(Bc!0,B2!7,B3).CCNB1(B!0,B1,B2,im,ep,L~CP).NucPore(B!7,cdk1~P)->\
+		CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~NU)+NucPore(B,cdk1~P)\
+			std_Tran_Off/sa_NM
+				#]
+				#Export [
+Note 6:	CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~NU,S133~U)+CRM1(ep,np,L~NU)->\
+		CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep!4,L~NU,S133~U).CRM1(ep!4,np,L~NU)\
+			MPF_Export_Fast/vol_NU
+Note 6:	CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~NU,S133~P,S147)+CRM1(ep,np,L~NU)->\
+		CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep!4,L~NU,S133~P,S147).CRM1(ep!4,np,L~NU)\
+			MPF_Export_Slow/vol_NU
+Note 6:	CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep!4,L~NU).CRM1(ep!4,np!+,L~CP)->\
+		CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Tran_Off/vol_CP
+				#]
+	#]
+		#Centrosomal Trafficking Rules [
+Note 7:	CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~CP)<->\
+		CDK1(Bc!0,B2,B3).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			MPF_CS_In/vol_CP,MPF_CS_Out/sa_CS
+	#]
+		#Cdk1 Modification of Cdc25b [
+					#Initial Complex Formation [
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25b(B,B2,im,ep,L~CS)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25b(B2,B!4,im,ep,L~CS)\
+			0*MPF_kOn_Partial/sa_CS
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25b(B,B2,im,ep,L~NU)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25b(B2,B!4,im,ep,L~NU)\
+			0*MPF_kOn_Partial/vol_NU
+			
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25b(B,B2,B151,im,ep,L~CS)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25b(B2,B!4,B151,im,ep,L~CS)\
+			0.1*MPF_kOn_Partial/sa_CS
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25b(B,B2,B230,im,ep,L~CS)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25b(B2,B!4,B230,im,ep,L~CS)\
+			0.1*MPF_kOn_Partial/sa_CS
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25b(B,B2,B323,im,ep,L~CS)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25b(B2,B!4,B323,im,ep,L~CS)\
+			0.1*MPF_kOn_Partial/sa_CS
+
+			
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25b(B,B2,B151,im,ep,L~NU)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25b(B2,B!4,B151,im,ep,L~NU)\
+			0.1*MPF_kOn_Partial/vol_NU
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25b(B,B2,B230,im,ep,L~NU)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25b(B2,B!4,B230,im,ep,L~NU)\
+			0.1*MPF_kOn_Partial/vol_NU
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25b(B,B2,B323,im,ep,L~NU)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25b(B2,B!4,B323,im,ep,L~NU)\
+			0.1*MPF_kOn_Partial/vol_NU
+
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25b(B,B2,im,ep,L~CS)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25b(B2,B!4,im,ep,L~CS)\
+			0*MPF_kOn_Active/sa_CS
+Note 18:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25b(B,B2,im,ep,L~NU)->\
+		CDK1(Bc!0,B2!4,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25b(B!4,B2,im,ep,L~NU)\
+			0*MPF_kOn_Active/vol_NU
+				#]
+					#THIS SECTION MAKES THE STATE CHANGES [
+Note 18:	CDK1(Bc!0,B2!4,B3,T14~U).CCNB1(B!0,B1,B2,im,ep).CDC25b(B!4,B2,im,ep,S160~U)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)+CDC25b(B,B2,im,ep,S160~P)\
+			std_Off
+		
+Note 18:	CDK1(Bc!0,B2!4,B3,T14~U).CCNB1(B!0,B1,B2,im,ep).CDC25b(B!4,B2,im,ep,S238~U)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)+CDC25b(B,B2,im,ep,S238~P)\
+			std_Off
+		
+Note 18:	CDK1(Bc!0,B2!4,B3,T14~U).CCNB1(B!0,B1,B2,im,ep).CDC25b(B!4,B2,im,ep,S321~U)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)+CDC25b(B,B2,im,ep,S321~P)\
+			std_Off
+				#]
+					#THIS RULE CLEANS UP ANY UNMODIFIABLE COMPLEXS [
+Note 18:	CDK1(Bc!0,B2!4,B3,T14~U).CCNB1(B!0,B1,B2,im,ep).CDC25b(B!4,B2,im,ep,S160~P,S238~P,S321~P)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)+CDC25b(B,B2,im,ep,S160~P,S238~P,S321~P)\
+			30*std_Off
+				#]
+	#]
+		#Modification of Wee1 [
+				#S139~P [
+Note 16:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)+WEE1(B,B2,im,ep,L~CP,S123,S139~U)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS).WEE1(B!1,B2,im,ep,L~CP,S123,S139~U)\
+			MPF_kOn_Partial/sa_CS
+Note 16:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+WEE1(B,B2,im,ep,L~NU,S123,S139~U)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).WEE1(B!1,B2,im,ep,L~NU,S123,S139~U)\
+			MPF_kOn_Partial/vol_NU
+Note 16:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)+WEE1(B,B2,im,ep,L~CP,S123,S139~U)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS).WEE1(B!1,B2,im,ep,L~CP,S123,S139~U)\
+			MPF_kOn_Active/sa_CS
+Note 16:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)+WEE1(B,B2,im,ep,L~NU,S123,S139~U)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU).WEE1(B!1,B2,im,ep,L~NU,S123,S139~U)\
+			MPF_kOn_Active/vol_NU
+						#State Change
+Note 16:	CDK1(Bc!0,B2!1,B3,T14~U).CCNB1(B!0,im,ep).WEE1(B!1,im,ep,S123,S139~U)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,im,ep)+WEE1(B,im,ep,S123,S139~P)\
+			std_Off
+				#]
+				#S123~P [
+Note 17:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)+WEE1(B,B2,im,ep,L~CP,S123~U,S139)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS).WEE1(B!1,B2,im,ep,L~CP,S123~U,S139)\
+			0.5*MPF_kOn_Active/vol_CP
+Note 17:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)+WEE1(B,B2,im,ep,L~NU,S123~U,S139)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU).WEE1(B!1,B2,im,ep,L~NU,S123~U,S139)\
+			0.5*MPF_kOn_Active/vol_NU
+
+				#State Change
+Note 17:	CDK1(Bc!0,B2!1,B3,T14~U,Y15~U).CCNB1(B!0,im,ep).WEE1(B!1,im,ep,S123~U,S139)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,im,ep)+WEE1(B,im,ep,S123~P,S139)\
+			std_Off
+		#]
+				#]
+		#Modification of pkMyt1 [
+Note 15:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CP)+pkMYT1(B,S426,T455~U,T461~U,T495)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CP).pkMYT1(B!1,S426,T455~U,T461~U,T495)\
+			20*MPF_kOn_Partial/vol_CP
+Note 15:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CP)+pkMYT1(B,S426,T455~U,T461~U,T495)->\
+		CDK1(Bc!0,B2!1,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CP).pkMYT1(B!1,S426,T455~U,T461~U,T495)\
+			20*MPF_kOn_Active/vol_CP
+Note 15:	CDK1(Bc!0,B2!1,B3,T14~U).CCNB1(B!0,B1,B2,im,ep).pkMYT1(B!1,S426,T455~U,T461~U,T495)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)+pkMYT1(B,S426,T455~P,T461~P,T495)\
+			std_Off
+	#]
+		#Cdk1/CCNB1 Modification of Cdc25c [
+				#S130~P [
+Note 12:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25c(B,B1,im,ep,L~NU,T130~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25c(B!8,B1,im,ep,L~NU,T130~U)\
+			MPF_kOn_Partial/vol_NU
+Note 12:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25c(B,B1,im,ep,L~NU,T130~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25c(B!8,B1,im,ep,L~NU,T130~U)\
+			MPF_kOn_Active/vol_NU
+Note 12:	CDK1(Bc!0,B2!8,B3,T14~U).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25c(B!8,B1,im,ep,L~NU,T130~U)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25c(B,B1,im,ep,L~NU,T130~P)\
+			std_Off
+				#]
+				#S168~P [
+Note 13:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25c(B,B1,im,ep,L~CS,S168~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25c(B!8,B1,im,ep,L~CS,S168~U)\
+			MPF_kOn_Partial/sa_CS
+Note 13:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25c(B,B1,im,ep,L~CS,S168~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25c(B!8,B1,im,ep,L~CS,S168~U)\
+			MPF_kOn_Active/sa_CS
+Note 13:	CDK1(Bc!0,B2!8,B3,T14~U).CCNB1(B!0,B1,B2,im,ep).CDC25c(B!8,B1,im,ep,L~CS,S168~U)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)+CDC25c(B,B1,im,ep,L~CS,S168~P)\
+			std_Off
+				#]
+				#S214~P [
+Note 14:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25c(B,B1,im,ep,L~CS,S214~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25c(B!8,B1,im,ep,L~CS,S214~U)\
+			MPF_kOn_Partial/sa_CS
+Note 14:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25c(B,B1,im,ep,L~NU,S214~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25c(B!8,B1,im,ep,L~NU,S214~U)\
+			MPF_kOn_Partial/vol_NU
+Note 14:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)+CDC25c(B,B1,im,ep,L~CS,S214~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS).CDC25c(B!8,B1,im,ep,L~CS,S214~U)\
+			MPF_kOn_Active/sa_CS
+Note 14:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)+CDC25c(B,B1,im,ep,L~NU,S214~U)->\
+		CDK1(Bc!0,B2!8,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU).CDC25c(B!8,B1,im,ep,L~NU,S214~U)\
+			MPF_kOn_Active/vol_NU
+		#]
+				#State Change [
+Note 14:	CDK1(Bc!0,B2!8,B3,T14~U).CCNB1(B!0,B1,B2,im,ep).CDC25c(B!8,B1,im,ep,S214~U)->\
+		CDK1(Bc!0,B2,B3,T14~U).CCNB1(B!0,B1,B2,im,ep)+CDC25c(B,B1,im,ep,S214~P)\
+			std_Off #]
+				
+	#]
+		#Cdk1/CCNB1 Autophosphorylation of CCNB1 [
+					#CDK1(T14~U,Y15~P) [
+		#This section needs to be re-exaimened.  March 15, 2013.
+Note 10:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,im,ep,L~CS,S126~U,S128~U,S147)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,im,ep,L~CS,S126~P,S128~P,S147)\
+			0.01*MPF_kOn_Partial/sa_CS
+Note 10:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,im,ep,L~CP,S126~U,S128~U,S147)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,im,ep,L~CP,S126~P,S128~P,S147)\
+			0.01*MPF_kOn_Partial/vol_CP
+Note 10:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,im,ep,L~NU,S126~U,S128~U,S147)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,im,ep,L~NU,S126~P,S128~U,S147)\
+			0.01*MPF_kOn_Partial/vol_NU
+			
+				#]
+					#CDK1(T14~U,Y15~U) [
+Note 10:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,im,ep,L~CS,S126~U,S128~U,S147)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,im,ep,L~CS,S126~P,S128~P,S147)\
+			MPF_kOn_Active/sa_CS
+Note 10:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,im,ep,L~CP,S126~U,S128~U,S147)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,im,ep,L~CP,S126~P,S128~P,S147)\
+			MPF_kOn_Active/vol_CP
+Note 10:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,im,ep,L~NU,S126~U,S128~U,S147)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,im,ep,L~NU,S126~P,S128~P,S147)\
+			MPF_kOn_Active/vol_NU
+				#]
+	#]
+		#Cdk1/CCNB1 Modification of NucPore for Fast Transport [
+Note 8:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CP)+NucPore(B,cdk1~U)->\
+		CDK1(Bc!0,B2!6,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CP).NucPore(B!6,cdk1~U)\
+			10*MPF_kOn_Active/vol_CP
+Note 8:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)+NucPore(B,cdk1~U)->\
+		CDK1(Bc!0,B2!6,B3,T14~U,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU).NucPore(B!6,cdk1~U)\
+			10*MPF_kOn_Active/vol_NU
+	
+#The next two rules are purposfully set to not fire.  Not in database.  Consideration should be given to removing these.  March 15, 2013.	
+Note 8:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CP)+NucPore(B,cdk1~U)->\
+		CDK1(Bc!0,B2!6,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~CP).NucPore(B!6,cdk1~U)\
+			0*MPF_kOn_Partial/vol_CP
+Note 8:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU)+NucPore(B,cdk1~U)->\
+		CDK1(Bc!0,B2!6,B3,T14~U,Y15~P).CCNB1(B!0,B1,B2,im,ep,L~NU).NucPore(B!6,cdk1~U)\
+			0*MPF_kOn_Partial/vol_NU
+		
+Note 8:	CDK1(Bc!0,B2!6,B3,T14~U,Y15).CCNB1(B!0,B1,B2,im,ep).NucPore(B!6,cdk1~U)->\
+		CDK1(Bc!0,B2,B3,T14~U,Y15).CCNB1(B!0,B1,B2,im,ep)+NucPore(B,cdk1~P)\
+			std_Tran_Off/sa_NM
+	#]
+		#CDK1/CCNB1 Modification of Histone H3 -- MITOSIS!!! [
+Note 9:	CDK1(Bc!0,B2,B3,T14~U,Y15~U).CCNB1(B!0,L~NU)+H3(B,S10~U)->\
+		CDK1(Bc!0,B2!2,B3,T14~U,Y15~U).CCNB1(B!0,L~NU).H3(B!2,S10~U)\
+			0.1*MPF_kOn_Active/vol_NU
+		
+Note 9:	CDK1(Bc!0,B2,B3,T14~U,Y15~P).CCNB1(B!0,L~NU)+H3(B,S10~U)->\
+		CDK1(Bc!0,B2!2,B3,T14~U,Y15~P).CCNB1(B!0,L~NU).H3(B!2,S10~U)\
+			0.1*MPF_kOn_Partial/vol_NU
+		
+Note 9:	CDK1(Bc!0,B2!2,T14~U).CCNB1(B!0,L~NU).H3(B!2,S10~U)->\
+		CDK1(Bc!0,B2,T14~U).CCNB1(B!0,L~NU)+H3(B,S10~P)\
+			std_Off
+	#]
+ #]
+#	pkMyt1 [
+		#pkMyt1 Generic Rules for Synthesis and Destruction [
+Note 35:	DUM(C)->\
+		DUM(C)+pkMYT1(B,L~GM,S426~U,T455~U,T461~U,T495~U)\
+			pkMyt1_Synthesis/sa_GM
+Note 19:	DUM(C)+pkMYT1(B)->\
+		DUM(C)\
+			pkMyt1_Degrade_1/sa_GM 
+Note 19:	DUM(C)+pkMYT1(B,T495~P)->\
+		DUM(C)\
+			pkMyt1_Degrade_2/sa_GM 
+Note 19:	DUM(C)+pkMYT1(B,S426~P)->\
+		DUM(C)\
+			pkMyt1_Degrade_3/sa_GM 
+Note 19:	DUM(C)+pkMYT1(B,S426~P,T495~P)->\
+		DUM(C)\
+			pkMyt1_Degrade_3/sa_GM 
+	#]
+		#pkMyt1 Modification of CDK1/CCNB1 [
+Note 20:	pkMYT1(B,S426~U,T455~U,T461~U,T495)+CDK1(Bc!0,B2,B3,T14~U,Y15).CCNB1(B!0,B1,B2,im,ep,L~CP)->\
+		pkMYT1(B!9,S426~U,T455~U,T461~U,T495).CDK1(Bc!0,B2,B3!9,T14~U,Y15).CCNB1(B!0,B1,B2,im,ep,L~CP)\
+			pkMyt1_kOn/sa_GM
+Note 20:	pkMYT1(B,S426~U,T455~U,T461~U,T495)+CDK1(Bc,B2,B3,T14~U,Y15)->\
+		pkMYT1(B!9,S426~U,T455~U,T461~U,T495).CDK1(Bc,B2,B3!9,T14~U,Y15)\
+			pkMyt1_kOn/sa_GM
+
+					#Phosphorylation of CDK1 T14
+Note 20:	pkMYT1(B!9,S426,T455~U,T461~U,T495).CDK1(Bc!0,B2,B3!9,T14~U,Y15).CCNB1(B!0,B1,B2,im,ep,L~CP)->\
+		pkMYT1(B,S426,T455~U,T461~U,T495)+CDK1(Bc!0,B2,B3,T14~P,Y15).CCNB1(B!0,B1,B2,im,ep,L~CP)\
+			std_Off
+Note 20:	pkMYT1(B!9,S426,T455~U,T461~U,T495).CDK1(Bc,B2,B3!9,T14~U,Y15)->\
+		pkMYT1(B,S426,T455~U,T461~U,T495)+CDK1(Bc,B2,B3,T14~P,Y15)\
+			std_Off
+
+					#Phosphorylation of Y15
+Note 20:	pkMYT1(B!9,S426,T455~U,T461~U,T495).CDK1(Bc!0,B2,B3!9,T14,Y15~U).CCNB1(B!0,B1,B2,L~CP)->\
+		pkMYT1(B,S426,T455~U,T461~U,T495)+CDK1(Bc!0,B2,B3,T14,Y15~P).CCNB1(B!0,B1,B2,L~CP)\
+			std_Off*0.3
+
+					#Remove Unmodifiable Complexes
+Note 20:	pkMYT1(B!9,S426,T455,T461,T495).CDK1(B2,B3!9,T14~P,Y15~P)->\
+		pkMYT1(B,S426,T455,T461,T495)+CDK1(B2,B3,T14~P,Y15~P)\
+			std_Off
+	#]
+ #]
+#	PP2A [
+		#CDK1 [
+		PP2A(B,im,ep)+CDK1(Bc,B2,B3,T161~P)->\
+		PP2A(B!0,im,ep).CDK1(Bc,B2!0,B3,T161~P)\
+			PP2A_kOn
+		
+		PP2A(B!0,im,ep).CDK1(Bc,B2!0,B3,T161~P)->\
+		PP2A(B,im,ep)+CDK1(Bc,B2,B3,T161~U)\
+			std_Off
+			#]
+			
+		#Modifacation of CDC25b [
+			#Dephosphorylation of S323~P [
+Note 71:	PP2A(B,im,ep,L~CP)+CDC25b(B,B2,B323,im,ep,L~CP,S323~P)->\
+		PP2A(B!0,im,ep,L~CP).CDC25b(B!0,B2,B323,im,ep,L~CP,S323~P)\
+			PP2A_kOn/vol_CP
+Note 71:	PP2A(B,im,ep,L~NU)+CDC25b(B,B2,B323,im,ep,L~NU,S323~P)->\
+		PP2A(B!0,im,ep,L~NU).CDC25b(B!0,B2,B323,im,ep,L~NU,S323~P)\
+			PP2A_kOn/vol_NU
+		
+					#State Change
+Note 71:	PP2A(B!0,im,ep).CDC25b(B!0,B2,B323,im,ep,S323~P)->\
+		PP2A(B,im,ep)+CDC25b(B,B2,B323,im,ep,S323~U)\
+			std_Off
+				#]
+			#Dephosphorylation of S151~P [
+Note 71:	PP2A(B,im,ep,L~CP)+CDC25b(B,B2,B151,im,ep,L~CP,S151~P)->\
+		PP2A(B!0,im,ep,L~CP).CDC25b(B!0,B2,B151,im,ep,L~CP,S151~P)\
+			PP2A_kOn/vol_CP
+Note 71:	PP2A(B,im,ep,L~NU)+CDC25b(B,B2,B151,im,ep,L~NU,S151~P)->\
+		PP2A(B!0,im,ep,L~NU).CDC25b(B!0,B151,B2,im,ep,L~NU,S151~P)\
+			PP2A_kOn/vol_NU
+		
+					#State Change
+Note 71:	PP2A(B!0,im,ep).CDC25b(B!0,B2,B151,im,ep,S151~P)->\
+		PP2A(B,im,ep)+CDC25b(B,B2,B151,im,ep,S151~U)\
+			std_Off
+				#]
+			#Dephosphorylation of S230~P [
+Note 71:	PP2A(B,im,ep,L~CP)+CDC25b(B,B2,B230,im,ep,L~CP,S230~P)->\
+		PP2A(B!0,im,ep,L~CP).CDC25b(B!0,B2,B230,im,ep,L~CP,S230~P)\
+			PP2A_kOn/vol_CP
+Note 71:	PP2A(B,im,ep,L~NU)+CDC25b(B,B2,B230,im,ep,L~NU,S230~P)->\
+		PP2A(B!0,im,ep,L~NU).CDC25b(B!0,B2,B230,im,ep,L~NU,S230~P)\
+			PP2A_kOn/vol_NU
+		
+					#State Change
+Note 71:	PP2A(B!0,im,ep).CDC25b(B!0,B2,B230,im,ep,S230~P)->\
+		PP2A(B,im,ep)+CDC25b(B,B2,B230,im,ep,S230~U)\
+			std_Off
+				#]
+	#]
+		#Modification of CDC25c [
+			#Dephosphorylation of S216~P [
+Note 72:	PP2A(B,im,ep,L~CP,X~1)+CDC25c(B,B1,B216,im,ep,L~CP,S216~P)->\
+		PP2A(B!1,im,ep,L~CP,X~2).CDC25c(B!1,B1,B216,im,ep,L~CP,S216~P)\
+			0.1*PP2A_kOn/vol_CP
+Note 72:	PP2A(B,im,ep,L~NU,X~1)+CDC25c(B,B1,B216,im,ep,L~NU,S216~P)->\
+		PP2A(B!1,im,ep,L~NU,X~2).CDC25c(B!1,B1,B216,im,ep,L~NU,S216~P)\
+			0.1*PP2A_kOn/vol_NU
+		
+				#State Change
+Note 72:	PP2A(B!1,im,ep,X~2).CDC25c(B!1,B1,B216,im,ep,S216~P)->\
+		PP2A(B,im,ep,X~1)+CDC25c(B,B1,B216,im,ep,S216~U)\
+			std_Off
+				#]
+			#Dephosphorylation of S263~P [
+Note 72:	PP2A(B,im,ep,L~CP,X~1)+CDC25c(B,B1,B263,im,ep,L~CP,S263~P)->\
+		PP2A(B!1,im,ep,L~CP,X~3).CDC25c(B!1,B1,B263,im,ep,L~CP,S263~P)\
+			0.1*PP2A_kOn/vol_CP
+Note 72:	PP2A(B,im,ep,L~NU,X~1)+CDC25c(B,B1,B263,im,ep,L~NU,S263~P)->\
+		PP2A(B!1,im,ep,L~NU,X~3).CDC25c(B!1,B1,B263,im,ep,L~NU,S263~P)\
+			0.1*PP2A_kOn/vol_NU
+		
+				#State Change
+Note 72:	PP2A(B!1,im,ep,X~3).CDC25c(B!1,B1,B263,im,ep,S263~P)->\
+		PP2A(B,im,ep,X~1)+CDC25c(B,B1,B263,im,ep,S263~U)\
+			std_Off
+				#]
+		#]
+	#]
+#	Wee1 [
+		#Wee1 Rules for Synthesis [
+Note 36:	DUM(C)->\
+		DUM(C)+WEE1(B,B2,im,ep,L~CP,S53~U,S121~U,S123~U,S139~U,T239~U,S642~U)\
+			Wee1_Synthesis/vol_CP
+	#]
+		#Wee1 Modification of CDK1 [
+				#Basal Activity [
+Note 73:	WEE1(B,B2,im,ep,L~CP,S123~U,S139~U)+CDK1(Bc!0,B2,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+		WEE1(B!1,B2,im,ep,L~CP,S123~U,S139~U).CDK1(Bc!0,B2!1,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			Wee1_kOn_Basal/sa_CS
+Note 73:	WEE1(B,B2,im,ep,L~NU,S123~U,S139~U)+CDK1(Bc!0,B2,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+		WEE1(B!1,B2,im,ep,L~NU,S123~U,S139~U).CDK1(Bc!0,B2!1,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+			Wee1_kOn_Basal/vol_NU
+			#]
+				#S139~P Wee1 [
+Note 73:	WEE1(B,B2,im,ep,L~CP,S123~U,S139~P)+CDK1(Bc!0,B2,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+		WEE1(B!1,B2,im,ep,L~CP,S123~U,S139~P).CDK1(Bc!0,B2!1,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+			Wee1_kOn_Active/sa_CS
+Note 73:	WEE1(B,B2,im,ep,L~NU,S123~U,S139~P)+CDK1(Bc!0,B2,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+		WEE1(B!1,B2,im,ep,L~NU,S123~U,S139~P).CDK1(Bc!0,B2!1,B3,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+			Wee1_kOn_Active/vol_NU
+			#]
+				#S123~P Wee1 Section not needed. [
+#WEE1(B,B2,im,ep,L~CP,S123~P,S139)+CDK1(Bc!0,B2,B3,T14,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)->\
+#	WEE1(B!1,B2,im,ep,L~CP,S123~P,S139).CDK1(Bc!0,B2!1,B3,T14,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~CS)\
+#		0.001/vol_CP
+#WEE1(B,B2,im,ep,L~NU,S123~P,S139)+CDK1(Bc!0,B2,B3,T14,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)->\
+#	WEE1(B!1,B2,im,ep,L~NU,S123~P,S139).CDK1(Bc!0,B2!1,B3,T14,Y15~U).CCNB1(B!0,B1,B2,im,ep,L~NU)\
+#		0.001/vol_NU
+			#]	
+			#[	#State Change Rules
+Note 73:	WEE1(B!1,im,ep).CDK1(Bc!0,B2!1,B3,Y15~U).CCNB1(B!0,im,ep)->\
+		WEE1(B,im,ep)+CDK1(Bc!0,B2,B3,Y15~P).CCNB1(B!0,im,ep)\
+			std_Off
+			#]	
+			#[	#Clean Up Any Dead Complexes
+Note 73:	WEE1(B!1,im,ep,S123~P,S139~P).CDK1(Bc!0,B2!1,Y15~P).CCNB1(B!0,im,ep)->\
+		WEE1(B,im,ep,S123~P,S139~P)+CDK1(Bc!0,B2,Y15~P).CCNB1(B!0,im,ep)\
+			std_Off
+			#]
+	#]
+		#Wee1 Nucleo-Cytoplasmic Transport. [
+			# Import [
+Note 74:	WEE1(B,B2,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		WEE1(B,B2,im!0,ep,L~CP).Importin(im!0,np,L~CP)\
+			Wee1_Import/vol_CP
+Note 74:	WEE1(B,B2,im!0,ep,L~CP).Importin(im!0,np!+,L~NU)->\
+		WEE1(B,B2,im,ep,L~NU)+Importin(im,np!+,L~NU)\
+			std_Off #]
+			
+			#Export [
+Note 74:	WEE1(B,B2,im,ep,L~NU)+CRM1(ep,np,L~NU)->\
+		WEE1(B,B2,im,ep!0,L~NU).CRM1(ep!0,np,L~NU)\
+			Wee1_Export/vol_NU
+Note 74:	WEE1(B,B2,im,ep!0,L~NU).CRM1(ep!0,np!+,L~CP)->\
+		WEE1(B,B2,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Off #]
+	#]
+ #]
+#	PLK1 [
+		#Plk1 Rules for Synthesis and Destruction [
+Note 75:	DUM(C)->\
+		DUM(C)+PLK1(B,B1,im,ep,L~CP,P~U,S137~U,T210~U)\
+			Plk1_Synthesis/vol_CP
+Note 75:	DUM(C)+PLK1(B,B1,im,ep,L~CP)->\
+		DUM(C)\
+			Plk1_Degrade/vol_CP
+	#]
+		#PLK1 Spontaneous Phosphorylation and Dephosphorylation [
+Note 76:	DUM(C)+PLK1(B,B1,im,ep,L~NU,S137~U,T210~U)<->\
+		DUM(C)+PLK1(B,B1,im,ep,L~NU,S137~U,T210~P)\
+			Plk1_Phos/vol_NU,Plk1_Dephos/vol_NU
+	#]
+		#PLK1 Nucleo-Cytoplasmic Transport  [
+					#Import [
+Note 77:	PLK1(B,B1,im,ep,L~CP)+Importin(im,np,L~CP)->\
+		PLK1(B,B1,im!1,ep,L~CP).Importin(im!1,np,L~CP)\
+			Plk1_Import/vol_CP
+Note 77:	PLK1(B,B1,im!1,ep,L~CP).Importin(im!1,np!+,L~NU)->\
+		PLK1(B,B1,im,ep,L~NU)+Importin(im,np!+,L~NU)\
+			std_Off
+				#]
+					#Export [
+Note 77:	PLK1(B,B1,im,ep,L~NU)+CRM1(ep,np,L~NU)->\
+		PLK1(B,B1,im,ep!1,L~NU).CRM1(ep!1,np,L~NU)\
+			Plk1_Export/vol_NU
+Note 77:	PLK1(B,B1,im,ep!1,L~NU).CRM1(ep!1,np!+,L~CP)->\
+		PLK1(B,B1,im,ep,L~CP)+CRM1(ep,np!+,L~CP)\
+			std_Off
+				#]
+	#]
+		#Centrosomal Trafficking Rules [
+Note 78:	PLK1(B,B1,im,ep,L~CP)<->\
+		PLK1(B,B1,im,ep,L~CS)\
+			Plk1_CS_in/vol_CP,Plk1_CS_out/sa_CS
+	#]
+		#Modification of Cdc25b [
+#Note 79:	PLK1(B,B1,im,ep,L~CS,T210~U) + CDC25b(B,B2,im,ep,L~CS,S160~P)->\
+#		PLK1(B!0,B1,im,ep,L~CS,T210~U).CDC25b(B!0,B2,im,ep,L~CS,S160~P)\
+#			0*Plk1_kOn_Basal/sa_CS
+#Note 79:	PLK1(B,B1,im,ep,L~CP,T210~U) + CDC25b(B,B2,im,ep,L~CP,S160~P)->\
+#		PLK1(B!0,B1,im,ep,L~CP,T210~U).CDC25b(B!0,B2,im,ep,L~CP,S160~P)\
+#			0*Plk1_kOn_Basal/vol_CP
+#Note 79:	PLK1(B,B1,im,ep,L~NU,T210~U) + CDC25b(B,B2,im,ep,L~CS,S160~P)->\
+#		PLK1(B!0,B1,im,ep,L~NU,T210~U).CDC25b(B!0,B2,im,ep,L~NU,S160~P)\
+#			0*Plk1_kOn_Basal/vol_NU
+
+Note 79:	PLK1(B,B1,im,ep,L~CS,T210~P) + CDC25b(B,B2,im,ep,L~CS,T50~P,T167~U,S209~U)->\
+		PLK1(B!0,B1,im,ep,L~CS,T210~P).CDC25b(B!0,B2,im,ep,L~CS,T50~P,T167~U,S209~U)\
+			Plk1_kOn_Basal/sa_CS
+Note 79:	PLK1(B,B1,im,ep,L~CP,T210~P) + CDC25b(B,B2,im,ep,L~CP,T50~P,T167~U,S209~U)->\
+		PLK1(B!0,B1,im,ep,L~CP,T210~P).CDC25b(B!0,B2,im,ep,L~CP,T50~P,T167~U,S209~U)\
+			Plk1_kOn_Basal/vol_CP
+Note 79:	PLK1(B,B1,im,ep,L~NU,T210~P) + CDC25b(B,B2,im,ep,L~CS,T50~P,T167~U,S209~U)->\
+		PLK1(B!0,B1,im,ep,L~NU,T210~P).CDC25b(B!0,B2,im,ep,L~NU,T50~P,T167~U,S209~U)\
+			Plk1_kOn_Basal/vol_NU
+		
+			#State Change
+Note 79:	PLK1(B!0,B1,im,ep,T210).CDC25b(B!0,B2,im,ep,T50~P,T167~U,S209~U)->\
+		PLK1(B,B1,im,ep,T210) + CDC25b(B,B2,im,ep,T50~P,T167~P,S209~P)\
+			std_Off
+	#]
+		#Modification of Cdc25c [
+#Note 80:	PLK1(B,B1,im,ep,L~NU,T210~U)+CDC25c(B,B1,im,ep,L~NU,T130~P,S191~U,S198~U)->\
+#		PLK1(B!1,B1,im,ep,L~NU,T210~U).CDC25c(B!1,B1,im,ep,L~NU,T130~P,S191~U,S198~U)\
+#			Plk1_kOn_Basal/vol_NU
+#Note 80:	PLK1(B,B1,im,ep,L~CS,T210~U)+CDC25c(B,B1,im,ep,L~CS,S168~P,S191~U,S198~U)->\
+#		PLK1(B!1,B1,im,ep,L~CS,T210~U).CDC25c(B!1,B1,im,ep,L~CS,S168~P,S191~U,S198~U)\
+#			Plk1_kOn_Basal/sa_CS
+		
+Note 80:	PLK1(B,B1,im,ep,L~NU,T210~P)+CDC25c(B,B1,im,ep,L~NU,T130~P,S191~U,S198~U)->\
+		PLK1(B!1,B1,im,ep,L~NU,T210~P).CDC25c(B!1,B1,im,ep,L~NU,T130~P,S191~U,S198~U)\
+			Plk1_kOn_Active/vol_NU
+Note 80:	PLK1(B,B1,im,ep,L~CS,T210~P)+CDC25c(B,B1,im,ep,L~CS,S168~P,S191~U,S198~U)->\
+		PLK1(B!1,B1,im,ep,L~CS,T210~P).CDC25c(B!1,B1,im,ep,L~CS,S168~P,S191~U,S198~U)\
+			Plk1_kOn_Active/sa_CS
+		
+			#State Change
+Note 80:	PLK1(B!1,B1,im,ep).CDC25c(B!1,B1,im,ep,S168~P,S191~U,S198~U)->\
+		PLK1(B,B1,im,ep)+CDC25c(B,B1,im,ep,S168~P,S191~P,S198~P)\
+			std_Off
+
+	#]
+		#Modification of Wee1 [
+				#Wee1 S123~U [
+Note 81:	PLK1(B,B1,im,ep,L~CP,T210~P)+WEE1(B,B2,im,ep,L~CP,S53~U,S121,S123~U,S139,S642)->\
+		PLK1(B!2,B1,im,ep,L~CP,T210~P).WEE1(B!2,B2,im,ep,L~CP,S53~U,S121,S123~U,S139,S642)\
+			Plk1_kOn_Basal/vol_CP
+Note 81:	PLK1(B,B1,im,ep,L~NU,T210~P)+WEE1(B,B2,im,ep,L~NU,S53~U,S121,S123~U,S139,S642)->\
+		PLK1(B!2,B1,im,ep,L~NU,T210~P).WEE1(B!2,B2,im,ep,L~NU,S53~U,S121,S123~U,S139,S642)\
+			Plk1_kOn_Basal/vol_NU #0.004
+		#]
+				#Wee1 S123~P [
+Note 81:	PLK1(B,B1,im,ep,L~CP,T210~P)+WEE1(B,B2,im,ep,L~CP,S53~U,S121,S123~P,S139,S642)->\
+		PLK1(B!2,B1,im,ep,L~CP,T210~P).WEE1(B!2,B2,im,ep,L~CP,S53~U,S121,S123~P,S139,S642)\
+			Plk1_kOn_Active/vol_CP
+Note 81:	PLK1(B,B1,im,ep,L~NU,T210~P)+WEE1(B,B2,im,ep,L~NU,S53~U,S121,S123~P,S139,S642)->\
+		PLK1(B!2,B1,im,ep,L~NU,T210~P).WEE1(B!2,B2,im,ep,L~NU,S53~U,S121,S123~P,S139,S642)\
+			Plk1_kOn_Active/vol_NU #0.01
+		#]
+				#State Change [
+Note 81:	PLK1(B!2,B1,im,ep,L~CP,T210~P).WEE1(B!2,B2,im,ep,L~CP,S53~U,S121,S123,S139,S642)->\
+		PLK1(B,B1,im,ep,L~CP,T210~P)+WEE1(B,B2,im,ep,L~CP,S53~P,S121,S123,S139,S642)\
+			std_Off/vol_CP
+Note 81:	PLK1(B!2,B1,im,ep,L~NU,T210~P).WEE1(B!2,B2,im,ep,L~NU,S53~U,S121,S123,S139,S642)->\
+		PLK1(B,B1,im,ep,L~NU,T210~P)+WEE1(B,B2,im,ep,L~NU,S53~P,S121,S123,S139,S642)\
+			std_Off/vol_NU
+		#]
+	#]
+		#Modification of Cdk1/CyclinB1 [
+#Note 82:	PLK1(B,B1,im,ep,L~CS,P,T210~P)+CCNB1(B!0,B1,B2,im,ep,L~CS,S126~U,S128~U,S133~U).CDK1(Bc!0,B2,B3,T161~P)->\
+#		PLK1(B!4,B1,im,ep,L~CS,P,T210~P).CCNB1(B!0,B1,B2,im,ep,L~CS,S126~U,S128~U,S133~U).CDK1(Bc!0,B2!4,B3,T161~P)\
+#			0*Plk1_kOn_Basal/sa_CS
+Note 82:	PLK1(B,B1,im,ep,L~CS,P,T210~P)+CCNB1(B!0,B1,B2,im,ep,L~CS,S126~P,S128~P,S133~U).CDK1(Bc!0,B2,B3,T161~P)->\
+		PLK1(B!4,B1,im,ep,L~CS,P,T210~P).CCNB1(B!0,B1,B2,im,ep,L~CS,S126~P,S128~P,S133~U).CDK1(Bc!0,B2!4,B3,T161~P)\
+			Plk1_kOn_Basal/sa_CS
+
+				#State Change  This rule is not necessary.
+#Note 82:	PLK1(B!4,B1,im,ep,L~CS,P,T210~P).CCNB1(B!0,im,ep,L~CS,S133~U).CDK1(Bc!0,B2!4,B3,T161~P)->\
+#		PLK1(B,B1,im,ep,L~CS,P,T210~P)+CCNB1(B!0,im,ep,L~CS,S133~P).CDK1(Bc!0,B2,B3,T161~P)\
+#			std_Off/sa_CS
+		
+#Note 82:	PLK1(B,B1,im,ep,L~NU,P,T210~P)+CCNB1(B!0,B1,B2,im,ep,L~NU,S126~U,S128~U,S133~U).CDK1(Bc!0,B2,B3,T161~P)->\
+#		PLK1(B!4,B1,im,ep,L~NU,P,T210~P).CCNB1(B!0,B1,B2,im,ep,L~NU,S126~U,S128~U,S133~U).CDK1(Bc!0,B2!4,B3,T161~P)\
+#			0*Plk1_kOn_Basal/vol_NU
+Note 82:	PLK1(B,B1,im,ep,L~NU,P,T210~P)+CCNB1(B!0,B1,B2,im,ep,L~NU,S126~P,S128~P,S133~U).CDK1(Bc!0,B2,B3,T161~P)->\
+		PLK1(B!4,B1,im,ep,L~NU,P,T210~P).CCNB1(B!0,B1,B2,im,ep,L~NU,S126~P,S128~P,S133~U).CDK1(Bc!0,B2!4,B3,T161~P)\
+			Plk1_kOn_Basal/vol_NU
+		
+			#State Change
+Note 82:	PLK1(B!4,B1,im,ep,P,T210~P).CCNB1(B!0,im,ep,S133~U).CDK1(Bc!0,B2!4,B3,T161~P)->\
+		PLK1(B,B1,im,ep,P,T210~P)+CCNB1(B!0,im,ep,S133~P).CDK1(Bc!0,B2,B3,T161~P)\
+			std_Off
+	#]
+		#Modifacation of pkMyt1 [
+			#S426~P [
+Note 83:	PLK1(B,B1,im,ep,L~CP,P,T210~P)+pkMYT1(B,L~GM,S426~U,T455~U)->\
+		PLK1(B!3,B1,im,ep,L~CP,P,T210~P).pkMYT1(B!3,L~GM,S426~U,T455~U)\
+			5*Plk1_kOn_Active/vol_CP #0.0005
+Note 83:	PLK1(B,B1,im,ep,L~CP,P,T210~P)+pkMYT1(B,L~GM,S426~U,T455~P)->\
+		PLK1(B!3,B1,im,ep,L~CP,P,T210~P).pkMYT1(B!3,L~GM,S426~U,T455~P)\
+			50*Plk1_kOn_Active/vol_CP
+					#State Change
+Note 83:	PLK1(B!3,B1,im,ep,L~CP,P,T210~P).pkMYT1(B!3,L~GM,S426~U)->\
+		PLK1(B,B1,im,ep,L~CP,P,T210~P)+pkMYT1(B,L~GM,S426~P)\
+			std_Off/sa_GM
+				#]
+			#T495~P [
+Note 83:	PLK1(B,B1,im,ep,L~CP,P,T210~P)+pkMYT1(B,L~GM,T461~U,T495~U)->\
+		PLK1(B!3,B1,im,ep,L~CP,P,T210~P).pkMYT1(B!3,L~GM,T461~U,T495~U)\
+			5*Plk1_kOn_Active/vol_CP #0.0005
+Note 83:	PLK1(B,B1,im,ep,L~CP,P,T210~P)+pkMYT1(B,L~GM,T461~P,T495~U)->\
+		PLK1(B!3,B1,im,ep,L~CP,P,T210~P).pkMYT1(B!3,L~GM,T461~P,T495~U)\
+			50*Plk1_kOn_Active/vol_CP
+		
+					#State Change
+Note 83:	PLK1(B!3,B1,im,ep,L~CP,P,T210~P).pkMYT1(B!3,L~GM,T495~U)->\
+		PLK1(B,B1,im,ep,L~CP,P,T210~P)+pkMYT1(B,L~GM,T495~P)\
+			std_Off/sa_GM
+				#]
+			#Remove Unmodifiable Complexes [
+Note 83:	PLK1(B!3,B1,im,ep,P,S137,T210).pkMYT1(B!3,L~GM,S426~P,T455,T461,T495~P)->\
+		PLK1(B,B1,im,ep,P,S137,T210)+pkMYT1(B,L~GM,S426~P,T455,T461,T495~P)\
+			std_Off
+		#]
+	#]
+ #]
+#	Generic Nucleo-Cytoplasmic Trafficking Rules [
+		#Generic Nuclear Import Rules [
+Note 88:	Importin(im!+,np,L~CP)+NucPore(Im)->\
+		Importin(im!+,np!0,L~CP).NucPore(Im!0)\
+			NP_kOn/vol_CP
+Note 88:	Importin(im!+,np!0,L~CP).NucPore(Im!0)->\
+		Importin(im!+,np!0,L~NU).NucPore(Im!0)\
+			NP_trans/vol_NU
+Note 88:	Importin(im,np!0,L~NU).NucPore(Im!0)->\
+		Importin(im,np,L~CP)+NucPore(Im)\
+			NP_kOn2/vol_NU
+#Note 88:	Importin(im,np!0,L~CP).NucPore(Im!0)->\
+#		Importin(im,np,L~CP)+NucPore(Im)\
+#			NP_kOff/vol_NU
+	#]
+		#Generic Nuclear Export Rules [
+Note 89:	CRM1(ep!+,np,L~NU)+NucPore(Cr)->\
+		CRM1(ep!+,np!1,L~NU).NucPore(Cr!1)\
+			NP_kOn/vol_NU
+Note 89:	CRM1(ep!+,np!1,L~NU).NucPore(Cr!1)->\
+		CRM1(ep!+,np!1,L~CP).NucPore(Cr!1)\
+			NP_trans/vol_NU
+Note 89:	CRM1(ep,np!1,L~CP).NucPore(Cr!1)->\
+		CRM1(ep,np,L~NU)+NucPore(Cr)\
+			NP_kOn2/vol_CP
+#Note 89:	CRM1(ep,np!1,L~NU).NucPore(Cr!1)->\
+#		CRM1(ep,np,L~NU)+NucPore(Cr)\
+#			NP_kOff/vol_NU
+	#]
+ #]
+#	Generic Kinase Reactions [
+			#CDC25c [
+Note 84:	Kinase(B)+CDC25c(B,B1,im,ep,L~CP,T130~U,S168~U,S214~U,S216~U,S263~U)->\
+		Kinase(B!0).CDC25c(B!0,B1,im,ep,L~CP,T130~U,S168~U,S214~U,S216~U,S263~U)\
+			0.1*Kinase_On/vol_CP
+Note 84:	Kinase(B)+CDC25c(B,B1,im,ep,L~NU,T130~U,S168~U,S214~U,S216~U,S263~U)->\
+		Kinase(B!0).CDC25c(B!0,B1,im,ep,L~NU,T130~U,S168~U,S214~U,S216~U,S263~U)\
+			0.1*Kinase_On/vol_NU
+			
+Note 84:	Kinase(B!0).CDC25c(B!0,B1,im,ep,T130~U,S168~U,S214~U,S216~U,S263~U)->\
+		Kinase(B)+CDC25c(B,B1,im,ep,T130~U,S168~U,S214~U,S216~P,S263~P)\
+			std_Off
+			#]
+			#CDC25b [
+				#S151 [
+		Kinase(B)+CDC25b(B,B2,im,ep,L~CP,S151~U,S160~U)->\
+		Kinase(B!1).CDC25b(B!1,B2,im,ep,L~CP,S151~U,S160~U)\
+			Kinase_On/vol_CP
+		Kinase(B)+CDC25b(B,B2,im,ep,L~NU,S151~U,S160~U)->\
+		Kinase(B!1).CDC25b(B!1,B2,im,ep,L~NU,S151~U,S160~U)\
+			Kinase_On/vol_NU
+			
+		Kinase(B!1).CDC25b(B!1,B2,im,ep,S151~U,S160~U)->\
+		Kinase(B)+CDC25b(B,B2,im,ep,S151~P,S160~U)\
+			std_Off
+			#]
+				#S230 [
+#		Kinase(B)+CDC25b(B,B2,im,ep,L~CP,S230~U,S238~U)->\
+#		Kinase(B!1).CDC25b(B!1,B2,im,ep,L~CP,S230~U,S238~U)\
+#			Kinase_On/vol_CP
+#		Kinase(B)+CDC25b(B,B2,im,ep,L~NU,S230~U,S238~U)->\
+#		Kinase(B!1).CDC25b(B!1,B2,im,ep,L~NU,S230~U,S238~U)\
+#			Kinase_On/vol_NU
+			
+#		Kinase(B!1).CDC25b(B!1,B2,im,ep,S230~U,S238~U)->\
+#		Kinase(B)+CDC25b(B,B2,im,ep,S230~P,S238~U)\
+#			std_Off
+				#]
+				#S323 [
+		Kinase(B)+CDC25b(B,B2,im,ep,L~CP,S321~U,S323~U)->\
+		Kinase(B!1).CDC25b(B!1,B2,im,ep,L~CP,S321~U,S323~U)\
+			Kinase_On/vol_CP
+		Kinase(B)+CDC25b(B,B2,im,ep,L~NU,S321~U,S323~U)->\
+		Kinase(B!1).CDC25b(B!1,B2,im,ep,L~NU,S321~U,S323~U)\
+			Kinase_On/vol_NU
+			
+		Kinase(B!1).CDC25b(B!1,B2,im,ep,S321~U,S323~U)->\
+		Kinase(B)+CDC25b(B,B2,im,ep,S321~U,S323~P)\
+			std_Off	#]
+			#]
+	#]
+#	bTrCP Mediated Protein Degradation [
+		#Wee1 [
+Note 85:	bTrCP(B)+WEE1(B,B2,im,ep,L~CP,S53~U)->\
+		bTrCP(B)\
+			bTrCP_We1_Low/vol_CP   #need a 25 to 30 minute half life in HeLa [with Plk1]
+Note 85:	bTrCP(B)+WEE1(B,B2,im,ep,L~CP,S53~P)->\
+		bTrCP(B)\
+			bTrCP_We1_Med/vol_CP 
+Note 85:	bTrCP(B)+WEE1(B,B2,im,ep,L~CP,S53~P,S121~P)->\
+		bTrCP(B)\
+			bTrCP_We1_Hi/vol_CP 
+
+	#]
+		#Cdc25a [
+Note 86:	bTrCP(B)+CDC25a(B,B1,im,ep,L~CP,S116~U,S76,S82~U,S88~U,S124~U,S178,T507)->\
+		bTrCP(B)\
+			bTrCP_CDC25a_Low/vol_CP	#Arbitrarily choose ~45 minutes
+
+Note 86:	bTrCP(B)+CDC25a(B,B1,im,ep,L~CP,S116~U,S76,S82~P,S88~P,S124,S178,T507)->\
+		bTrCP(B)\
+			bTrCP_CDC25a_Med/vol_CP
+Note 86:	bTrCP(B)+CDC25a(B,B1,im,ep,L~CP,S116~U,S76,S82~P,S88~P,S124~P,S178,T507)->\
+		bTrCP(B)\
+			bTrCP_CDC25a_Hi/vol_CP	#Want 3-5 minutes
+		#]
+		#Cdc25b [
+Note 87:	bTrCP(B)+CDC25b(B151,B230,B323,im,ep,L~CP)->\
+		bTrCP(B)\
+			bTrCP_CDC25b/vol_CP
+		#]
+	#]
+ 
+end reaction rules #]
+
+end model
+#simulate_nf({t_start=>0,t_end=>2000,n_steps=>1000,atol=>1e-12,rtol=>1e-12,sparse=>1,param=>"-csv"});
+simulate_nf({t_start=>0,t_end=>4000,n_steps=>2000,param=>"-csv"});

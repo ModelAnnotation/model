@@ -1,0 +1,152 @@
+#		HEADER SECTION [
+#MAPK Signalling model.
+#Important Note -- the left "[" and right "]" brackets preceded by a comment marker (#) are to allow folding of the code in Notepad++.
+#Questions about this model should be addressed to:
+#Dr. Dennis A. Simpson 
+#University of North Carolina at Chapel Hill
+#Dept. of Pathology & Laboratory Medicine
+#CB7295
+#Chapel Hill, NC  27599
+#email: g2.checkpoint@gmail.com
+#Phone: 919-357-1028
+#
+#Copyright 2014 Dennis A. Simpson
+#
+#Current version:  v0.1
+#Version Date:  June 6, 2014
+#
+# ]
+
+begin model
+
+begin molecule types #[
+BRAF(B,B1,RBD,im,ep,L~CP~PM~NU,V600E~T~F,T599~U~P)
+NRAS(B,B1,RBD,L~CP~PM,G~GDP~GTP)
+ET1(B,B1)
+CRM1(ep,np,L~CP~NU)
+Importin(im,np,L~CP~NU)
+NucPore(B,L~NM,Im,Cr,cdk1~U~P)
+YWHAZ(B,B2,B3,L~CP~CS~NU)
+
+Timer(t~ON~OFF)
+Count(a~0~1,b~0~1,c~0~1,d~0~1)
+DUM(C)
+Kinase(B,X~1~2~3~4)
+end molecule types # ]
+begin parameters # [
+#	Compartment Volume and Surface Area Parameters #[
+	vol_CP		 4.9		#I envision this to mean that the total volume of the cell is ~10.  I subtracted the golgi volume, centrosome volume and a fudge factor volume.
+	vol_NU		 5.0		#Nucleus to cytoplasm ratio for fibroblasts is 2:1 to 1:1.  I think this represents 1:1
+	vol_GO		 0.01		#Volume of golgi is ~0.001 that of cytoplasm.
+	sa_PM		23.0		#minimum surface area for a sphere with a volume of 10.0
+	sa_NM		15.0		#minimum surface area for a sphere with a volume of 5.0
+	sa_GM		 2.25		#minimum surface area for a sphere of 0.01 is 0.225.  Golgi has a large surface area compared to volume.
+	sa_CS		 0.0029		#Surface area of centrosome.  Measured is ~1.0 uM^2 with the range being 0.5 uM^2 early G2 and 1.5 uM^2 at mitosis.
+	#]
+# 	Rate Constants [
+#		Generic Constants [
+	std_Off			   10
+	std_Tran_Off		  200
+	NP_kOn			 6500
+	NP_trans			 2000
+	NP_kOn2			 4000
+	NP_kOff			 4000
+	Z					0
+	Time					0.0011
+	#]
+#		YWHAZ [
+	YWHAZ_kOn			0.05
+	YWHAZ_kOff			0.01
+	#]
+
+#		Generic Kinase [
+	Kinase_On			0.001
+	#]
+	#]
+end parameters #]
+begin observables #[
+Molecules	TimerCount	Timer(t~ON)
+Molecules ET1			ET1()
+end observables #]
+begin functions #[
+#	ET1 Injection
+	func_ET1on() = if(TimerCount>100 && TimerCount<250,0.15,0)
+	func_ET1off() = if(TimerCount>300,0.001,0)
+end functions	#]
+begin seed species #[
+BRAF(B,B1,RBD,im,ep,L~CP,V600E~F,T599~U) 50
+NRAS(B,B1,RBD,L~PM,G~GDP) 50
+ET1(B,B1) 0
+NucPore(B,L~NM,Im,Cr,cdk1~U) 50
+Importin(im,np,L~CP) 200
+CRM1(ep,np,L~NU) 200
+YWHAZ(B,B2,B3,L~CP) 600
+
+Timer(t~OFF) 1000
+Count(a~0,b~0,c~0,d~0) 0
+Kinase(B,X~1) 100
+DUM(C) 35
+end seed species #]
+begin reaction rules #[
+#The notes correspond to the entity diagrams.
+#	Miscellaneous Rules [
+#		Timer [
+Note 7a:	Timer(t~OFF)->Timer(t~ON) Time
+		#]
+#		ET1 [
+Note 7:	DUM(C)->DUM(C)+ET1(B,B1) func_ET1on()
+Note 7:	DUM(C)+ET1()->DUM(C) func_ET1off()
+	
+	#]
+
+#	14-3-3 [
+
+	#]
+#	NRAS [
+Note :	NRAS(B,B1,RBD,L~PM)+ET1(B,B1)<->\
+		NRAS(B,B1!0,RBD,L~PM).ET1(B!0,B1)\
+			0.001/sa_PM,0.0001/sa_PM
+		
+#		EGF(B!+,B1)+EGF(B!+,B1)<->\
+#		EGF(B!+,B1!0).EGF(B!+,B1!1)\
+#			0.001/sa_PM,0.0001/sa_PM
+		
+#		NRAS(B,B1!0,RBD,L~PM,G~GDP).EGF(B!0,B1!+)+GEF(B)
+	#]
+
+#	Generic Nucleo-Cytoplasmic Trafficking Rules [
+#		Generic Nuclear Import Rules [
+Note 88:	Importin(im!+,np,L~CP)+NucPore(Im)->\
+		Importin(im!+,np!0,L~CP).NucPore(Im!0)\
+			NP_kOn/sa_NM
+Note 88:	Importin(im!+,np!+,L~CP)->\
+		Importin(im!+,np!+,L~NU)\
+			NP_trans/sa_NM
+Note 88:	Importin(im,np!0,L~NU).NucPore(Im!0)->\
+		Importin(im,np,L~CP)+NucPore(Im)\
+			NP_kOff/sa_NM
+Note 88:	Importin(im,np!0,L~CP).NucPore(Im!0)->\
+		Importin(im,np,L~CP)+NucPore(Im)\
+			NP_kOff/sa_NM
+		#]
+#		Generic Nuclear Export Rules [
+Note 89:	CRM1(ep!+,np,L~NU)+NucPore(Cr)->\
+		CRM1(ep!+,np!1,L~NU).NucPore(Cr!1)\
+			NP_kOn/sa_NM
+Note 89:	CRM1(ep!+,np!+,L~NU)->\
+		CRM1(ep!+,np!+,L~CP)\
+			NP_trans/sa_NM
+Note 89:	CRM1(ep,np!1,L~CP).NucPore(Cr!1)->\
+		CRM1(ep,np,L~NU)+NucPore(Cr)\
+			NP_kOff/sa_NM
+Note 89:	CRM1(ep,np!1,L~NU).NucPore(Cr!1)->\
+		CRM1(ep,np,L~NU)+NucPore(Cr)\
+			NP_kOff/sa_NM
+		#]
+	#]
+
+end reaction rules #]
+
+end model
+simulate_nf({t_start=>0,t_end=>1000,n_steps=>1000,atol=>1e-12,rtol=>1e-12,sparse=>1,param=>"-csv"});
+#simulate_nf({t_start=>0,t_end=>8000,n_steps=>4000,param=>"-csv"});

@@ -1,0 +1,423 @@
+#		HEADER SECTION [
+#ATM Activation model.
+#Copyright 2015 Dennis A. Simpson
+#
+#Version:  v0.1beta;  December 7, 2014
+#Version Date:  Nov. 1, 2013
+#This is the initial build.  Based on G2 checkpoint model.  The molecule, variable, and observable declarations contain entries from G2 model.  Most of original rules are still present as well.
+#The "Note" declaration for each rule has been refactored  such that each grouping has a designation followed by a rule number.  Intent is to merge this with a G2 checkpoint model eventually.
+#
+#Important Note -- the left "[" and right "]" brackets preceded by a comment marker (#) are to allow folding of the code in Notepad++.
+#Questions about this model should be addressed to:
+#Dr. Dennis A. Simpson 
+#email: g2.checkpoint@gmail.com
+#Phone: 919-357-1028 
+#]
+
+begin model
+
+begin molecule types #[
+ATM(B,B1,im,ep,L~CP~NU,S367~U~P,S1893~U~P,S1981~U~P)
+ATMIN(B,B1,im,ep,L~CP~NU)
+DSB(Break~0~1)  # This is a double strand DNA break.
+CRM1(ep,np,L~CP~NU)
+Importin(im,np,L~CP~NU)
+NucPore(B,L~NM,Im,Cr,cdk1~U~P)
+PP2A(B,im,ep,L~CP~NU,X~1~2~3~4~5)
+Count(a~0~1,b~0~1,c~0~1,d~0~1)
+Timer(t~OFF~ON)
+DUM(C)
+end molecule types # ]
+begin parameters #[
+#	Compartment Volume and Surface Area Parameters # [
+	vol_CP		 4.9			#I envision this to mean that the total volume of the cell is ~10.  I subtracted the golgi volume, centrosome volume and a fudge factor volume.
+	vol_NU		 5.0			#Nucleus to cytoplasm ratio for fibroblasts is 2:1 to 1:1.  I think this represents 1:1
+	vol_GO		 0.01			#Volume of golgi is ~0.001 that of cytoplasm.
+	sa_PM		23.0			#minimum surface area for a sphere with a volume of 10.0
+	sa_NM		15.0			#minimum surface area for a sphere with a volume of 5.0
+	sa_GM		 2.25			#minimum surface area for a sphere of 0.01 is 0.225.  Golgi has a large surface area compared to volume.
+	sa_CS		 0.0029		#Surface area of centrosome.  Measured is ~1.0 uM^2 with the range being 0.5 uM^2 early G2 and 1.5 uM^2 at mitosis.
+	#]
+# 	Rate Constants [
+#		Generic Constants [
+	std_Off			   10
+	std_Tran_Off		  200
+	NP_kOn			 6500
+	NP_trans		 2000
+	NP_kOn2		 4000
+	NP_kOff			 4000
+	Z					0.0
+	#]
+#		YWHAZ [
+	YWHAZ_kOn			0.05
+	YWHAZ_kOff			0.01
+	#]
+#		ATM [
+	ATM_Syn		0.018
+	ATM_Deg		0.000273125
+	ATM_dimer_ON		0.03
+	ATM_dimer_OFF		0.0005
+	ATM_Import		0.000015
+	ATM_Export		0.000005
+	ATM_kON_basal		0.0001
+	ATM_kON_active		0.01
+	#]
+#		AurA [
+	AurA_Syn				0.001
+	AurA_Deg				0.0001
+	AurA_Import			0.0001
+	AurA_Export			0.0001
+	AurA_CS_In			0.0001
+	AurA_CS_Out			0.0001
+	#]
+#		BORA [
+	BORA_Syn			0.001
+	BORA_Deg			0.0001
+	BORA_Import			0.0001
+	BORA_Export			0.0001
+	BORA_CS_In			0.0001
+	BORA_CS_Out			0.0001
+	#]
+#		Chk1 [
+	Chk1_kOn_Active		0.000001
+	Chk1_kOn_Partial		0.00000001
+	Chk1_kOn_Weak		0.00000005
+	Chk1_kOn_Basal		0.00000001
+	Chk1_Syn				0.03
+	Chk1_Deg			0.007
+	Chk1_p317_On			0.001
+	Chk1_p317_Off			0.05
+	Chk1_p345_On			0.03
+	Chk1_p345_Off			0.03
+	Chk1_Import_Fast		3.0
+	Chk1_Import_Slow		0.12
+	Chk1_Export_Fast		0.081
+	Chk1_Export_Med		0.05
+	Chk1_Export_Slow		0.01
+	Chk1_CS_In			11
+	Chk1_CS_Out			0.0005
+	#]
+#		Chk2 [
+	Chk2_kOn_Active		0.001
+	Chk2_kOn_Partial		0.0001
+	Chk2_kOn_Basal		0.00001			#CHK2() This is some lazy coding and thus should be changed because it includes all active forms of Chk2.
+	Chk2_Syn				0.025
+	Chk2_Deg			0.008
+	Chk2_p68_On			0.00001
+	Chk2_Phos_Off		0.001
+	Chk2_Import			3.0
+	Chk2_Export			0.03
+	Chk2_Activate			0.005
+	#]
+#		Nek11 [
+	Nek11_Dephos			0.0007
+	Nek11_kOn_Active		0.0008
+	Nek11_kOn_Basal		0.000008
+	#]
+#		CDC25a [
+	Cdc25a_Synthesis		0.11
+	Cdc25a_Import			0.0016
+	Cdc25a_Export			0.0002
+	Cdc25a_CS_in_1		0.15
+	Cdc25a_CS_in_2		4.5
+	Cdc25a_CS_out		0.0003
+	Cdc25a_kOn_Basal		0.00001		#Represents basal activity. As of July 19, 2012 not used.
+	Cdc25a_kOn_Active		0.00005
+	#]
+#		CDC25b [
+	Cdc25b_Synthesis		0.015
+	Cdc25b_Dephos		0.00004
+	Cdc25b_Dephos_2		0.0001
+	Cdc25b_Import_1		0.0000135
+	Cdc25b_Import_2		0.00027
+	Cdc25b_Export_1		0.000003
+	Cdc25b_Export_2		0.01  #Not currently used.
+	Cdc25b_Export_3		0.00018
+	Cdc25b_CS_in			0.15
+	Cdc25b_CS_out		0.0003
+	Cdc25b_kOn_Active		0.0008
+	Cdc25b_kOn_Partial		0.00001
+	Cdc25b_kOn_Weak		0.00003
+	#]
+#		CDC25c [
+	Cdc25c_Synthesis		0.01
+	Cdc25c_Degrade		0.00075
+	Cdc25c_Import_1		0.000025
+	Cdc25c_Import_2		0.0025
+	Cdc25c_Import_3		0.0005
+	Cdc25c_Export_1		0.00005
+	Cdc25c_Export_2		0.00025
+	Cdc25c_CS_in			0.001
+	Cdc25c_CS_out_1		0.0001
+	Cdc25c_CS_out_2		0.00001
+	Cdc25c_kOn_Basal		0.00001
+	Cdc25c_kOn_Active		0.0001
+	#]
+		#CCNB1 [
+	CCNB1_Synthesis		0.008
+	CCNB1_Deg_Slow		0.0002
+	CCNB1_Deg_Fast		0.0001
+	CCNB1_On_1			0.009
+	CCNB1_Off			3.0
+	#]
+#		GSK3b [
+	GSK3b_Syn			0.0002
+	GSK3b_Deg			0.00002
+	GSK3b_Import			0.0008
+	GSK3b_Export			0.00004
+	GSK3b_On			0.0001
+	#]
+#		MPF [
+	MPF_kOn_Partial		0.0001
+	MPF_kOn_Active		0.01
+	MPF_Import			0.025
+	MPF_Import_Fast		0.02
+	MPF_Export_Fast		0.03
+	MPF_Export_Slow		0.00001
+	MPF_CS_In			1.0
+	MPF_CS_Out			0.0003
+	#]
+		#pkMyt1 [
+	pkMyt1_Synthesis		0.0012
+	pkMyt1_Degrade_1		0.000004
+	pkMyt1_Degrade_2		0.00001
+	pkMyt1_Degrade_3		0.004
+	pkMyt1_kOn			0.15
+	#]
+#		Wee1 [
+	Wee1_Synthesis		0.003
+	Wee1_Import			0.0015
+	Wee1_Export			0.000025
+	Wee1_kOn_Basal		0.007
+	Wee1_kOn_Active		0.12
+	#]
+		#Plk1 [
+	Plk1_Synthesis			0.15
+	Plk1_Phos			0.001
+	Plk1_Dephos			0.02
+	Plk1_Import			0.065
+	Plk1_Export			0.035
+	Plk1_CS_in			2.0
+	Plk1_CS_out			0.003
+	Plk1_kOn_Basal		0.000001
+	Plk1_kOn_Active		0.001
+	#]
+		#PP2A [
+	PP2A_kOn			0.005
+	#]
+		#CAK1 [
+	CAK1_kOn			0.01
+	#]
+		#bTrCP [
+	bTrCP_CDC25a_Low	0.008
+	bTrCP_CDC25a_Med	0.03
+	bTrCP_CDC25a_Hi		0.3
+	bTrCP_CDC25b		0.0002
+	bTrCP_We1_Low		0.0001
+	bTrCP_We1_Med		0.55
+	bTrCP_We1_Hi			1.0
+	#]
+#		Cdh1 [
+	Cdh1_Plk1			0.003
+	#]
+#		Generic Kinase [
+	Kinase_On			0.001
+	#]
+	#]
+end parameters # ]
+begin observables #[
+#	ATM [
+Molecules	ATM				ATM()
+Molecules	ATM_cp				ATM(L~CP)
+Molecules	ATM_nu				ATM(L~NU)
+Molecules	ATM_s1981P			ATM(S1981~P)
+Molecules	ATM_s1981P_cp		ATM(L~CP,S1981~P)
+Molecules	ATM_s1981P_nu		ATM(L~NU,S1981~P)
+Molecules	ATM_dimer			ATM(B!+)
+Molecules	ATM_dimer_cp		ATM(B!+,L~CP)
+Molecules	ATM_dimer_nu		ATM(B!+,L~NU)
+Molecules	ATM_PP2A			PP2A(B!2,im,ep,L).ATM(B!1,B1!2,im,ep,L,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L,S367,S1893,S1981~P)
+#]
+#	Miscellaneous [
+Molecules	DSB		DSB(Break~1)
+Molecules	DSB0		DSB(Break~0)
+Molecules	Count_a		Count(a~1)
+Molecules	Count_b		Count(b~1)
+Molecules	Count_c		Count(c~1)
+Molecules	Count_d		Count(d~1)
+Molecules	TimeCount	Timer(t~ON)
+
+	#]
+end observables #]
+begin functions #[
+##	Ionizing Radiation between time steps 100 and 110.
+Irradiation() = if(TimeCount>220,0,(if(TimeCount>200,1,0)))
+
+end functions	#]
+begin seed species #[
+DSB(Break~0) 1000
+
+ATM(B,B1,im,ep,L~CP,S367~U,S1893~U,S1981~U)	50
+ATM(B,B1,im,ep,L~NU,S367~U,S1893~U,S1981~U)	150
+
+ATMIN(B,B1,im,ep,L~CP) 50
+
+NucPore(B,L~NM,Im,Cr,cdk1~U) 50
+Importin(im,np,L~CP) 200
+CRM1(ep,np,L~NU) 200
+
+PP2A(B,im,ep,L~CP,X~1) 50
+PP2A(B,im,ep,L~NU,X~1) 50
+
+Timer(t~OFF) 1000
+Count(a~0,b~0,c~0,d~0) 0
+DUM(C) 35
+
+end seed species #]
+begin reaction rules #[
+#The notes correspond to the entity diagrams.
+
+#	ATM [
+#		Synthesis and Destruction [
+Note ATM:		DUM(C)->\
+		DUM(C)+ATM(B,B1,im,ep,L~CP,S367~U,S1893~U,S1981~U)\
+		ATM_Syn/vol_CP
+		
+Note ATM:		DUM(C)+ATM(B!?,B1,im,ep,L~CP,S367,S1893,S1981)->\
+		DUM(C)\
+		ATM_Deg/vol_CP DeleteMolecules
+		#]
+#		Dimer Formation [
+Note ATM_dimer:		ATM(B,B1,im,ep,L~CP,S367,S1893,S1981~U)+ATM(B,B1,im,ep,L~CP,S367,S1893,S1981~U)<->\
+		ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U)\
+		ATM_dimer_ON/vol_CP, ATM_dimer_OFF/vol_CP
+		
+Note ATM_dimer:		ATM(B,B1,im,ep,L~NU,S367,S1893,S1981~U)+ATM(B,B1,im,ep,L~NU,S367,S1893,S1981~U)<->\
+		ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U)\
+		ATM_dimer_ON/vol_NU, ATM_dimer_OFF/vol_NU
+		
+Note ATM_dimer:		ATM(B!1,B1,im,ep,L,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L,S367,S1893,S1981)->\
+		ATM(B,B1,im,ep,L,S367,S1893,S1981~P)+ATM(B,B1,im,ep,L,S367,S1893,S1981)\
+		std_Off
+		#]
+#		Transport [
+#			Nuclear Import [
+Note ATM_nuc_im:			ATM(B1,im,ep,L~CP,S367~U,S1893,S1981)+Importin(im,np,L~CP)->\
+			ATM(B1,im!1,ep,L~CP,S367~U,S1893,S1981).Importin(im!1,np,L~CP)\
+			ATM_Import/vol_CP
+			
+Note ATM_nuc_im:			ATM(B1,im!1,ep,L~CP,S367~U,S1893,S1981).Importin(im!1,np!+,L~NU)->\
+			ATM(B1,im,ep,L~NU,S367~U,S1893,S1981)+Importin(im,np!+,L~NU)\
+			std_Tran_Off/vol_NU
+			#]
+#			Nuclear Export [
+Note ATM_nuc_ep:			ATM(B1,im,ep,L~NU,S367,S1893,S1981)+CRM1(ep,np,L~NU)->\
+			ATM(B1,im,ep!1,L~NU,S367,S1893,S1981).CRM1(ep!1,np,L~NU)\
+			0.9*ATM_Export/vol_NU
+			
+Note ATM_nuc_ep:			ATM(B1,im,ep!1,L~NU,S367,S1893,S1981).CRM1(ep!1,np!+,L~CP)->\
+			ATM(B1,im,ep,L~CP,S367,S1893,S1981)+CRM1(ep,np!+,L~CP)\
+			std_Tran_Off/vol_CP
+			#]
+		#]
+#		Autophosphorylation [
+Note ATM_autophosphorylation:		ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U)->\
+		ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P)\
+		10*ATM_kON_basal/vol_CP
+		
+Note ATM_autophos:		ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U)->\
+		ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)\
+		10*ATM_kON_basal/vol_NU
+		
+Note ATM_autophs:		ATM(B!?,B1,im,ep,L~NU,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U)->\
+		ATM(B!?,B1,im,ep,L~NU,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)\
+		ATM_kON_active/vol_NU
+
+Note ATM_autophs:		ATM(B!?,B1,im,ep,L~CP,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U)->\
+		ATM(B!?,B1,im,ep,L~CP,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P)\
+		ATM_kON_active/vol_CP
+		
+Note ATM_autophs:		ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U)->\
+			ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)\
+			ATM_kON_active/vol_NU
+			
+Note ATM_autophs:		ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~U)->\
+			ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P)+ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P)\
+			ATM_kON_active/vol_CP
+			
+
+Note ATM_DSB:		DSB(Break~1)+ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~U)->\
+		DSB(Break~1)+ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)\
+		10000*ATM_kON_active/vol_NU
+		#]
+#		ATM S1981 [
+Note PP2A_ATM:		PP2A(B,im,ep,L~CP)+ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P)->\
+		PP2A(B!2,im,ep,L~CP).ATM(B!1,B1!2,im,ep,L~CP,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~CP,S367,S1893,S1981~P)\
+		PP2A_kOn/vol_CP
+		
+Note PP2A_ATM:		PP2A(B,im,ep,L~NU)+ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)->\
+		PP2A(B!2,im,ep,L~NU).ATM(B!1,B1!2,im,ep,L~NU,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L~NU,S367,S1893,S1981~P)+Count(a~0,b~0,c~0,d~1)\
+		PP2A_kOn
+		
+Note PP2A_ATM:		PP2A(B!2,im,ep,L).ATM(B!1,B1!2,im,ep,L,S367,S1893,S1981~P).ATM(B!1,B1,im,ep,L,S367,S1893,S1981~P)->\
+		PP2A(B,im,ep,L)+ATM(B!1,B1,im,ep,L,S367,S1893,S1981~U).ATM(B!1,B1,im,ep,L,S367,S1893,S1981~U)\
+		std_Off
+		
+Note PP2A_ATM:		PP2A(B,im,ep,L~CP)+ATM(B,B1,im,ep,L~CP,S367,S1893,S1981~P)->\
+		PP2A(B!1,im,ep,L~CP).ATM(B,B1!1,im,ep,L~CP,S367,S1893,S1981~P)\
+		PP2A_kOn
+		
+Note PP2A_ATM:		PP2A(B,im,ep,L~NU)+ATM(B,B1,im,ep,L~NU,S367,S1893,S1981~P)->\
+		PP2A(B!1,im,ep,L~NU).ATM(B,B1!1,im,ep,L~NU,S367,S1893,S1981~P)+Count(a~0,b~1,c~0,d~0)\
+		PP2A_kOn
+
+Note PP2A_ATM:		PP2A(B!1,im,ep,L).ATM(B,B1!1,im,ep,L,S367,S1893,S1981~P)->\
+		PP2A(B,im,ep,L)+ATM(B,B1,im,ep,L,S367,S1893,S1981~U)\
+		std_Off
+		#]
+	#]
+
+#	Double Strand Break Induction [
+Note DSBi:	DSB(Break~0)->DSB(Break~1) Irradiation()
+Note DSBr:	DSB(Break~1)->DSB(Break~0) 0.005
+#]
+#	Generic Nucleo-Cytoplasmic Trafficking Rules [
+#		Generic Nuclear Import Rules [
+Note 88:	Importin(im!+,np,L~CP)+NucPore(Im)->\
+		Importin(im!+,np!0,L~CP).NucPore(Im!0)\
+			NP_kOn/sa_NM
+Note 88:	Importin(im!+,np!+,L~CP)->\
+		Importin(im!+,np!+,L~NU)\
+			NP_trans/sa_NM
+Note 88:	Importin(im,np!0,L~NU).NucPore(Im!0)->\
+		Importin(im,np,L~CP)+NucPore(Im)\
+			NP_kOff/sa_NM
+Note 88:	Importin(im,np!0,L~CP).NucPore(Im!0)->\
+		Importin(im,np,L~CP)+NucPore(Im)\
+			NP_kOff/sa_NM
+		#]
+#		Generic Nuclear Export Rules [
+Note 89:	CRM1(ep!+,np,L~NU)+NucPore(Cr)->\
+		CRM1(ep!+,np!1,L~NU).NucPore(Cr!1)\
+			NP_kOn/sa_NM
+Note 89:	CRM1(ep!+,np!+,L~NU)->\
+		CRM1(ep!+,np!+,L~CP)\
+			NP_trans/sa_NM
+Note 89:	CRM1(ep,np!1,L~CP).NucPore(Cr!1)->\
+		CRM1(ep,np,L~NU)+NucPore(Cr)\
+			NP_kOff/sa_NM
+Note 89:	CRM1(ep,np!1,L~NU).NucPore(Cr!1)->\
+		CRM1(ep,np,L~NU)+NucPore(Cr)\
+			NP_kOff/sa_NM
+		#]
+	#]
+#	Generic Reactions [
+#	Time Counter [
+Note TimeCounter:	Timer(t~OFF)->Timer(t~ON) 0.001
+#]
+ 
+end reaction rules #]
+
+end model
+#simulate_nf({t_start=>0,t_end=>2000,n_steps=>1000,atol=>1e-12,rtol=>1e-12,sparse=>1,param=>"-csv"});
+simulate_nf({t_start=>0,t_end=>2000,n_steps=>1000,param=>"-csv"});

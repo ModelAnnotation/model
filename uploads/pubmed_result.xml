@@ -1,0 +1,229 @@
+<?xml version="1.0"?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2014//EN" "http://www.ncbi.nlm.nih.gov.libproxy.lib.unc.edu/corehtml/query/DTD/pubmed_140101.dtd">
+<PubmedArticleSet>
+
+<PubmedArticle>
+    <MedlineCitation Owner="NLM" Status="MEDLINE">
+        <PMID Version="1">19727074</PMID>
+        <DateCreated>
+            <Year>2009</Year>
+            <Month>09</Month>
+            <Day>25</Day>
+        </DateCreated>
+        <DateCompleted>
+            <Year>2009</Year>
+            <Month>10</Month>
+            <Day>14</Day>
+        </DateCompleted>
+        <DateRevised>
+            <Year>2009</Year>
+            <Month>11</Month>
+            <Day>19</Day>
+        </DateRevised>
+        <Article PubModel="Print-Electronic">
+            <Journal>
+                <ISSN IssnType="Electronic">1476-4687</ISSN>
+                <JournalIssue CitedMedium="Internet">
+                    <Volume>461</Volume>
+                    <Issue>7263</Issue>
+                    <PubDate>
+                        <Year>2009</Year>
+                        <Month>Sep</Month>
+                        <Day>24</Day>
+                    </PubDate>
+                </JournalIssue>
+                <Title>Nature</Title>
+                <ISOAbbreviation>Nature</ISOAbbreviation>
+            </Journal>
+            <ArticleTitle>A dimerization-dependent mechanism drives RAF catalytic activation.</ArticleTitle>
+            <Pagination>
+                <MedlinePgn>542-5</MedlinePgn>
+            </Pagination>
+            <ELocationID EIdType="doi" ValidYN="Y">10.1038/nature08314</ELocationID>
+            <Abstract>
+                <AbstractText>The ERK (extracellular signal-regulated kinase) pathway is an evolutionarily conserved signal transduction module that controls cellular growth, differentiation and survival. Activation of receptor tyrosine kinases (RTKs) by the binding of growth factors initiates GTP loading of RAS, which triggers the initial steps in the activation of the ERK pathway by modulating RAF family kinase function. Once activated, RAF participates in a sequential cascade of phosphorylation events that activate MEK, and in turn ERK. Unbridled signalling through the ERK pathway caused by activating mutations in RTKs, RAS or RAF has been linked to several human cancers. Of note, one member of the RAF family, BRAF, is the most frequently mutated oncogene in the kinase superfamily. Not surprisingly, there has been a colossal effort to understand the underlying regulation of this family of kinases. In particular, the process by which the RAF kinase domain becomes activated towards its substrate MEK remains of topical interest. Here, using Drosophila Schneider S2 cells, we demonstrate that RAF catalytic function is regulated in response to a specific mode of dimerization of its kinase domain, which we term the side-to-side dimer. Moreover, we find that the RAF-related pseudo-kinase KSR (kinase suppressor of Ras) also participates in forming side-to-side heterodimers with RAF and can thereby trigger RAF activation. This mechanism provides an elegant explanation for the longstanding conundrum about RAF catalytic activation, and also provides an explanation for the capacity of KSR, despite lacking catalytic function, to directly mediate RAF activation. We also show that RAF side-to-side dimer formation is essential for aberrant signalling by oncogenic BRAF mutants, and identify an oncogenic mutation that acts specifically by promoting side-to-side dimerization. Together, our data identify the side-to-side dimer interface of RAF as a potential therapeutic target for intervention in BRAF-dependent tumorigenesis.</AbstractText>
+            </Abstract>
+            <AuthorList CompleteYN="Y">
+                <Author ValidYN="Y">
+                    <LastName>Rajakulendran</LastName>
+                    <ForeName>Thanashan</ForeName>
+                    <Initials>T</Initials>
+                    <Affiliation>Centre for Systems Biology, Samuel Lunenfeld Research Institute, Toronto, Ontario M5G 1X5, Canada.</Affiliation>
+                </Author>
+                <Author ValidYN="Y">
+                    <LastName>Sahmi</LastName>
+                    <ForeName>Malha</ForeName>
+                    <Initials>M</Initials>
+                </Author>
+                <Author ValidYN="Y">
+                    <LastName>Lefrançois</LastName>
+                    <ForeName>Martin</ForeName>
+                    <Initials>M</Initials>
+                </Author>
+                <Author ValidYN="Y">
+                    <LastName>Sicheri</LastName>
+                    <ForeName>Frank</ForeName>
+                    <Initials>F</Initials>
+                </Author>
+                <Author ValidYN="Y">
+                    <LastName>Therrien</LastName>
+                    <ForeName>Marc</ForeName>
+                    <Initials>M</Initials>
+                </Author>
+            </AuthorList>
+            <Language>eng</Language>
+            <PublicationTypeList>
+                <PublicationType>Journal Article</PublicationType>
+                <PublicationType>Research Support, Non-U.S. Gov't</PublicationType>
+            </PublicationTypeList>
+            <ArticleDate DateType="Electronic">
+                <Year>2009</Year>
+                <Month>09</Month>
+                <Day>02</Day>
+            </ArticleDate>
+        </Article>
+        <MedlineJournalInfo>
+            <Country>England</Country>
+            <MedlineTA>Nature</MedlineTA>
+            <NlmUniqueID>0410462</NlmUniqueID>
+            <ISSNLinking>0028-0836</ISSNLinking>
+        </MedlineJournalInfo>
+        <ChemicalList>
+            <Chemical>
+                <RegistryNumber>0</RegistryNumber>
+                <NameOfSubstance>Drosophila Proteins</NameOfSubstance>
+            </Chemical>
+            <Chemical>
+                <RegistryNumber>0</RegistryNumber>
+                <NameOfSubstance>phl protein, Drosophila</NameOfSubstance>
+            </Chemical>
+            <Chemical>
+                <RegistryNumber>EC 2.7.-</RegistryNumber>
+                <NameOfSubstance>Protein Kinases</NameOfSubstance>
+            </Chemical>
+            <Chemical>
+                <RegistryNumber>EC 2.7.1.-</RegistryNumber>
+                <NameOfSubstance>KSR-1 protein kinase</NameOfSubstance>
+            </Chemical>
+            <Chemical>
+                <RegistryNumber>EC 2.7.11.1</RegistryNumber>
+                <NameOfSubstance>Proto-Oncogene Proteins B-raf</NameOfSubstance>
+            </Chemical>
+            <Chemical>
+                <RegistryNumber>EC 2.7.11.1</RegistryNumber>
+                <NameOfSubstance>Proto-Oncogene Proteins c-raf</NameOfSubstance>
+            </Chemical>
+        </ChemicalList>
+        <CitationSubset>IM</CitationSubset>
+        <MeshHeadingList>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Animals</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Binding Sites</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Biocatalysis</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Cell Line</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Drosophila Proteins</DescriptorName>
+                <QualifierName MajorTopicYN="Y">chemistry</QualifierName>
+                <QualifierName MajorTopicYN="N">genetics</QualifierName>
+                <QualifierName MajorTopicYN="Y">metabolism</QualifierName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Drosophila melanogaster</DescriptorName>
+                <QualifierName MajorTopicYN="Y">enzymology</QualifierName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Enzyme Activation</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Humans</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Models, Molecular</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Protein Kinases</DescriptorName>
+                <QualifierName MajorTopicYN="N">chemistry</QualifierName>
+                <QualifierName MajorTopicYN="N">metabolism</QualifierName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="Y">Protein Multimerization</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Protein Structure, Quaternary</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Protein Structure, Tertiary</DescriptorName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Proto-Oncogene Proteins B-raf</DescriptorName>
+                <QualifierName MajorTopicYN="N">chemistry</QualifierName>
+                <QualifierName MajorTopicYN="N">genetics</QualifierName>
+                <QualifierName MajorTopicYN="N">metabolism</QualifierName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Proto-Oncogene Proteins c-raf</DescriptorName>
+                <QualifierName MajorTopicYN="Y">chemistry</QualifierName>
+                <QualifierName MajorTopicYN="N">genetics</QualifierName>
+                <QualifierName MajorTopicYN="Y">metabolism</QualifierName>
+            </MeshHeading>
+            <MeshHeading>
+                <DescriptorName MajorTopicYN="N">Structure-Activity Relationship</DescriptorName>
+            </MeshHeading>
+        </MeshHeadingList>
+    </MedlineCitation>
+    <PubmedData>
+        <History>
+            <PubMedPubDate PubStatus="received">
+                <Year>2009</Year>
+                <Month>4</Month>
+                <Day>10</Day>
+            </PubMedPubDate>
+            <PubMedPubDate PubStatus="accepted">
+                <Year>2009</Year>
+                <Month>7</Month>
+                <Day>24</Day>
+            </PubMedPubDate>
+            <PubMedPubDate PubStatus="aheadofprint">
+                <Year>2009</Year>
+                <Month>9</Month>
+                <Day>02</Day>
+            </PubMedPubDate>
+            <PubMedPubDate PubStatus="entrez">
+                <Year>2009</Year>
+                <Month>9</Month>
+                <Day>4</Day>
+                <Hour>6</Hour>
+                <Minute>0</Minute>
+            </PubMedPubDate>
+            <PubMedPubDate PubStatus="pubmed">
+                <Year>2009</Year>
+                <Month>9</Month>
+                <Day>4</Day>
+                <Hour>6</Hour>
+                <Minute>0</Minute>
+            </PubMedPubDate>
+            <PubMedPubDate PubStatus="medline">
+                <Year>2009</Year>
+                <Month>10</Month>
+                <Day>15</Day>
+                <Hour>6</Hour>
+                <Minute>0</Minute>
+            </PubMedPubDate>
+        </History>
+        <PublicationStatus>ppublish</PublicationStatus>
+        <ArticleIdList>
+            <ArticleId IdType="pii">nature08314</ArticleId>
+            <ArticleId IdType="doi">10.1038/nature08314</ArticleId>
+            <ArticleId IdType="pubmed">19727074</ArticleId>
+        </ArticleIdList>
+    </PubmedData>
+</PubmedArticle>
+
+</PubmedArticleSet>
