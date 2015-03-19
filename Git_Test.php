@@ -5,6 +5,6 @@
  * @copyright 2015
  */
 
-echo "Hellow Big World; Testing Git"
+echo "Hello Big World; Testing Git"
 
 ?>
