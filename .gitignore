@@ -5,8 +5,16 @@
 */config/development
 */logs/log-*.php
 */logs/!index.html
-*application/compiled/*
-*/cache/*
+/application/compiled
+/application/compiled/
+application/compiled
+/application/compiled/*
+application/compiled/*.*
+*/application/compiled/*.*
+application/logs
+ci_sessions
+.idea
+/cache/*
 */cache/!index.html
 */cache/!.htaccess
 
@@ -226,3 +234,4 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
