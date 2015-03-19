@@ -5,6 +5,7 @@
 */config/development
 */logs/log-*.php
 */logs/!index.html
+*/compiled/*
 */cache/*
 */cache/!index.html
 */cache/!.htaccess
