@@ -101,6 +101,18 @@ class Compartments extends CI_Controller
         $this->load->model('model_rules');
         $this->model_utilities->pagination( TRUE );
         $rulename = $this->model_rules->get($id);
+        if(isset($_POST) AND !empty($_POST))
+        {
+            if($this->model_utilities->delete('rule_compartments', 'idrules', $id, 'compartment_id', $this->input->post( 'compartment_id' )))
+            {
+                $_SESSION['messages'] = 'Compartment Removed From Rule';
+            }
+            else
+            {
+                $_SESSION['errors'] = 'Deletion Failed';
+            }
+            redirect('/compartments/rulecomparts/'.$id);
+        }
         
         $this->information['who'] = $rulename['rule'];
         $this->information['title'] = 'Compartments for Rule:</br>';

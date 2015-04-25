@@ -63,8 +63,11 @@
                     <td>{$row.value}</td>
                     <td>
                         {if !$guest}
+                             <input type="hidden" class="form-control" name="compartment_id" value={$row.compartment_id}> 
                             <a href="index.php/compartments/edit/{$row.id}"><img src="stylesheets/images/edit.png" alt="Edit record" /></a>
-                            <a href="index.php/compartments/delete/{$row.id}"onclick="return confirm('You Are About to Delete a Record.  This Cannot be Undone.');"><img src="stylesheets/images/delete.png" alt="Delete record" /></a>
+                            <button class="btn btn-sm" type="post" onclick="return confirm('You Are About to Delete a Record.  This Cannot be Undone.');">
+                                <img src="stylesheets/images/delete.png" alt="Delete record" />
+                            </button>
                         {/if}
                     </td>
                 </tr>

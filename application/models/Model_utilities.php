@@ -15,11 +15,19 @@ class Model_utilities extends CI_Model
         parent::__construct();
     }
     
-    function duplicate_check($table,$field, $value)
+    function duplicate_check($table,$field1, $value1, $field2=FALSE, $value2=FALSE, $link_table=FALSE)
     {
         $this->db->from($table);
-        $this->db->where('project_id', $_SESSION['project_id']);
-        $this->db->where($field, $value);
+        if($link_table === FALSE)
+        {
+            $this->db->where('project_id', $_SESSION['project_id']);
+        }
+        
+        $this->db->where($field1, $value1);
+        if($field2)
+        {
+            $this->db->where($field2, $value2);
+        }
         if($this->db->get()->num_rows() > 0)
         {
             return FALSE;
@@ -30,23 +38,35 @@ class Model_utilities extends CI_Model
         }
     }
     
-    function pagination( $bool )
+    function pagination($bool)
     {
-        $this->pagination_enabled = ( $bool === TRUE ) ? TRUE : FALSE;
+        $this->pagination_enabled = ($bool === TRUE) ? TRUE : FALSE;
     }
 
-	function delete ( $table, $k, $id )
+	function delete ($table, $k1, $id1, $k2=FALSE, $id2=FALSE)
 	{
-        if( is_array( $id ) )
+        if( is_array( $id1 ) )
         {
-            $this->db->where_in( $k, $id );            
+            $this->db->where_in( $k1, $id1 );            
         }
         else
         {
-            $this->db->where( $k, $id );
+            $this->db->where( $k1, $id1);
         }
-        $this->db->delete( $table );
-        return true;
+        
+        if($k2)
+        {
+            $this->db->where($k2, $id2);
+        }
+        if($this->db->delete( $table ))
+        {
+            return TRUE;
+        }
+        else
+        {
+            return FALSE;
+        }
+        
 	}
 
 	function insert ( $table, $data )

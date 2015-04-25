@@ -58,7 +58,7 @@ class Model_compartments extends CI_Model
             foreach ( $query->result_array() as $row  )
             {
                 $result[] = array(
-                            'id'            => $row['compartment_id'],
+                            'compartment_id'=>  $row['compartment_id'],
                             'compartment'   =>  $row['compartment'],
                             'description'   =>  $row['description'],
                             'value'         =>  $row['value']

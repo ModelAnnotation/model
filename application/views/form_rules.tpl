@@ -113,7 +113,7 @@
 
         <div class="row">
             <button class="btn btn-warning btn-lg btn-block" type="post">
-                <img src="stylesheets/images/icons/tick.png" alt="Select Project"/> Save Edits
+                <img src="stylesheets/images/icons/tick.png" alt="Save Edits"/> Save Edits
             </button>
         </div>
 

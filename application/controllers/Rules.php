@@ -200,6 +200,7 @@ class Rules extends CI_Controller
             redirect('molecule');
         }
         
+        $link_table = TRUE;
         $data = $this->model_rules->get( $id );
         $this->form_validation->set_rules( 'rule', lang('rule'), 'required' );
         $this->form_validation->set_rules( 'idecm', lang('idecm'), 'required' );
@@ -220,24 +221,56 @@ class Rules extends CI_Controller
                 {
                     $rulemol['idrules'] = $id;
                     $rulemol['idmolecule'] = $this->input->post('idmolecule');
-                    $this->model_utilities->insert('rulemol', $rulemol);
+                    if($this->model_utilities->duplicate_check('rulemol', 'idrules', $id, 'idmolecule', $this->input->post('idmolecule'), $link_table))
+                    {
+                        $this->model_utilities->insert('rulemol', $rulemol);
+                        $update_messages .= 'Molecule Entered';
+                    }
+                    else
+                    {
+                        $update_errors .= ' Duplicate Molecule Not Entered.';
+                    }
                 }
                 
                 if ($this->input->post('parameter_id'))
                 {
                     $rule_params['idrules'] = $id;
                     $rule_params['parameter_id'] = $this->input->post('parameter_id');
-                    $this->model_utilities->insert('rule_params', $rule_params);
+                    if($this->model_utilities->duplicate_check('rule_params', 'idrules', $id, 'parameter_id', $this->input->post('parameter_id'), $link_table))
+                    {
+                        $this->model_utilities->insert('rule_params', $rule_params);
+                        $update_messages .= 'Parameter Entered';
+                    }
+                    else
+                    {
+                        $update_errors .= ' Duplicate Parameter Not Entered.';
+                    }
                 }
                 
                 if ($this->input->post('compartment_id'))
                 {
                     $rule_compartments['idrules'] = $id;
                     $rule_compartments['compartment_id'] = $this->input->post('compartment_id');
-                    $this->model_utilities->insert('rule_compartments', $rule_compartments);
+                    if($this->model_utilities->duplicate_check('rule_compartments', 'idrules', $id, 'compartment_id', $this->input->post('compartment_id'), $link_table))
+                    {
+                        $this->model_utilities->insert('rule_compartments', $rule_compartments);
+                        $update_messages .= 'Compartment Entered';
+                    }
+                    else
+                    {
+                        $update_errors .= ' Duplicate Compartment Not Entered.';
+                    }
                 }
-
-                $_SESSION['messages'] = 'Update Successful';
+                
+                if(isset($update_errors))
+                {
+                    $_SESSION['errors'] = $update_errors;
+                }
+                if(isset($update_messages))
+                {
+                    $_SESSION['messages'] = $update_messages;
+                }
+                
            	    redirect( 'rules/edit/' . $id );
             }
             else
