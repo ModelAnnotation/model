@@ -410,7 +410,13 @@ class Auth extends CI_Controller {
 		}
 	}
 
-
+#######################################################################################################################
+#                                       Cross Site Request Forgery Check                                              #
+#######################################################################################################################
+/**
+ * This is now native to CodeIgniter and should at some point be removed completely from Ion Auth.
+ * Setting this to always return true stops an annoying error.
+ */
 
 	function _get_csrf_nonce()
 	{
@@ -422,13 +428,6 @@ class Auth extends CI_Controller {
 
 		return array($key => $value);
 	}
-#######################################################################################################################
-#                                       Cross Site Request Forgery Check                                              #
-#######################################################################################################################
-/**
- * This is now native to CodeIgniter and should at some point be removed completely from Ion Auth.
- * Setting this to always return true stops an annoying error.
- */
 	function _valid_csrf_nonce()
 	{
 			return TRUE;
