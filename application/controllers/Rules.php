@@ -221,15 +221,15 @@ class Rules extends CI_Controller
                 {
                     $rulemol['idrules'] = $id;
                     $rulemol['idmolecule'] = $this->input->post('idmolecule');
-                    if($this->model_utilities->duplicate_check('idmolecule', 'idrules', $id, 'idmolecule', $this->input->post('idmolecule'), $link_table))
+                    if($this->model_utilities->duplicate_check('rulemol', 'idrules', $id, 'idmolecule', $this->input->post('idmolecule'), $link_table))
                     {
                         $this->model_utilities->insert('rulemol', $rulemol);
+                        $update_messages .= 'Molecule Entered';
                     }
                     else
                     {
                         $update_errors .= ' Duplicate Molecule Not Entered.';
                     }
-
                 }
                 
                 if ($this->input->post('parameter_id'))
@@ -239,12 +239,12 @@ class Rules extends CI_Controller
                     if($this->model_utilities->duplicate_check('rule_params', 'idrules', $id, 'parameter_id', $this->input->post('parameter_id'), $link_table))
                     {
                         $this->model_utilities->insert('rule_params', $rule_params);
+                        $update_messages .= 'Parameter Entered';
                     }
                     else
                     {
                         $update_errors .= ' Duplicate Parameter Not Entered.';
                     }
-                    
                 }
                 
                 if ($this->input->post('compartment_id'))
@@ -254,20 +254,21 @@ class Rules extends CI_Controller
                     if($this->model_utilities->duplicate_check('rule_compartments', 'idrules', $id, 'compartment_id', $this->input->post('compartment_id'), $link_table))
                     {
                         $this->model_utilities->insert('rule_compartments', $rule_compartments);
+                        $update_messages .= 'Compartment Entered';
                     }
                     else
                     {
                         $update_errors .= ' Duplicate Compartment Not Entered.';
                     }
-                    
                 }
+                
                 if(isset($update_errors))
                 {
                     $_SESSION['errors'] = $update_errors;
                 }
-                else
+                if(isset($update_messages))
                 {
-                    $_SESSION['messages'] = 'Update Successful';
+                    $_SESSION['messages'] = $update_messages;
                 }
                 
            	    redirect( 'rules/edit/' . $id );
