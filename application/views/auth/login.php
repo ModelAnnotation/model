@@ -1,4 +1,4 @@
-{* <?php
+<?php
 /**
  * @author Dennis A. Simpson
  * @copyright 2015
@@ -6,7 +6,7 @@
  * @package Model Annotation Site
  * @abstract This is the Login page for MODEL project.
  */
-?> *}
+?> 
 
 <!DOCTYPE HTML>
 

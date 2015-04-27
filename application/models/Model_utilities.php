@@ -15,6 +15,21 @@ class Model_utilities extends CI_Model
         parent::__construct();
     }
     
+    function directory_check() //Check if upload directory exsists and create if it doesn't
+    {
+        $dir = upload_base.DIRECTORY_SEPARATOR.$_SESSION['project_id'];
+
+        if(is_dir($dir))
+        {
+            return $dir;
+        }
+        else
+        {
+            mkdir($dir,0755,TRUE);
+            return $dir;
+        }
+    }
+    
     function duplicate_check($table,$field1, $value1, $field2=FALSE, $value2=FALSE, $link_table=FALSE)
     {
         $this->db->from($table);
@@ -42,6 +57,34 @@ class Model_utilities extends CI_Model
     {
         $this->pagination_enabled = ($bool === TRUE) ? TRUE : FALSE;
     }
+    
+#######################################################################################################################
+#                                       Deletes an Uploaded  File.                                                    #
+#######################################################################################################################
+    
+    function delete_file ( $file )
+    {
+        $this->load->helper('file');
+        $filepath = upload_base.DIRECTORY_SEPARATOR.$_SESSION['project_id'].DIRECTORY_SEPARATOR;
+        
+        if(!is_file($filepath.$file))
+        {
+            return FALSE;
+        }
+        if(unlink( $filepath.$file))
+        {
+            return TRUE;
+        }
+        else
+        {
+            $_SESSION['errors'] = 'Server Error, File Exsists However Deletion Failed';
+            redirect($_SERVER['HTTP_REFERER']);
+        }
+    }
+
+#######################################################################################################################
+#                                      Deletes Records From Table.                                                    #
+#######################################################################################################################
 
 	function delete ($table, $k1, $id1, $k2=FALSE, $id2=FALSE)
 	{

@@ -12,6 +12,8 @@ application/compiled
 application/compiled/*.*
 */application/compiled/*.*
 application/logs
+uploads/*
+uploads
 ci_sessions
 .idea
 /cache/*

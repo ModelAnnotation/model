@@ -67,8 +67,13 @@
               
                     {if isset($information.project_id)}<!-- require a project to be selected for the next sections -->
                           <li class="dropdown">
-                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">ECM Figures<b class="caret"></b></a>
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Pathway Diagrams<b class="caret"></b></a>
                             <ul class="dropdown-menu">
+                            <li><a href='index.php/diagrams/index'>List of Diagrams</a></li>
+                            {if !$guest}<!-- check group_id, exlcude "guest users" -->
+                                <li><a href='index.php/diagrams/diagram_upload'>Upload Diagrams</a></li>
+                            {/if}
+                            <li class="divider"></li>
                             <li><a href='index.php/dashboard/ecm_1'>Main G2 Figure</a></li>
                             <li><a href='index.php/dashboard/ecm_2'>Generic Transport</a></li>
                             <li><a href='index.php/dashboard/ecm_3'>Glyph Definition</a></li>
