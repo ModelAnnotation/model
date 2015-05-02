@@ -2,13 +2,13 @@
 
 /**
  * @author Dennis A. Simpson
- * @copyright 2014
- * @version 1.1 beta -- added filter to lister function that limits the daily builds to current project.
- * @abstract Handles manipulations of daily build records. 
+ * @copyright 2015
+ * @version 0.5
+ * @abstract Handles uploads and down-loads of the diagrams. 
  * @package Model Annotion Site
  */
 
-class Model_daily_build extends CI_Model 
+class Model_diagrams extends CI_Model 
 {
     function __construct()
     {
@@ -22,23 +22,23 @@ class Model_daily_build extends CI_Model
     }
 
 #######################################################################################################################
-#                                  Retrieve Daily Builds and setup pager.                                             #
+#                                      Retrieve Diagrams and setup pager.                                             #
 #######################################################################################################################
 
 	function lister ( $page = FALSE )
 	{
 	    $this->db->start_cache();
 	
-		$this->db->from( 'daily_build' );
+		$this->db->from( 'diagrams' );
         $this->db->where( 'project_id', $_SESSION['project_id'] );
-		$this->db->order_by( 'created', 'DESC' );
+		$this->db->order_by( 'uploaded', 'DESC' );
         $this->db->stop_cache();
 
         if( $this->model_utilities->pagination_enabled == TRUE )
         {
             $config = array();
             $config['total_rows']  = $this->db->count_all_results();
-            $config['base_url']    = 'index.php/daily_build/index/';
+            $config['base_url']    = 'index.php/diagrams/index/';
             $config['uri_segment'] = 3;
             $config['per_page']    = $this->pagination_per_page;
             $config['num_links']   = $this->pagination_num_links;
@@ -56,36 +56,33 @@ class Model_daily_build extends CI_Model
 		foreach ( $query->result_array() as $row )
 		{
 			$result[] = array( 
-                        	'id'        => $row['id'],
-                        	'notes'     => $row['notes'],
-                        	'user_id'   => $row['user_id'],
-                        	'created'   => $row['created'],
-                            'updated'   => $row['updated'],
-                            'file_link' => $row['file_link'],
+                        	'diagram_id'  => $row['diagram_id'],
+                        	'description' => $row['description'],
+                        	'uploaded'    => $row['uploaded'],
+                            'filename'    => $row['filename']
                              );
 		}
         $this->db->flush_cache(); 
 		return $result;
 	}
 
-###################################################################################################
-#                       Processess Daily Build Rule File for Download                             #
-###################################################################################################
+######################################################################################################################
+#                                  Processess Diagram File for Download                                              #
+######################################################################################################################
 
     function download_file($file, $filepath)
     {
-; 
         force_download( $filepath.$file, NULL); 
     }
 
 #######################################################################################################################
-#                               Get a Single Daily Build Record to Edit or Show.                                      #
+#                              Get a Single Diagram File Record to Edit or Show.                                      #
 #######################################################################################################################
 
 	function get ( $id, $get_one = false )
 	{
-		$this->db->select( 'id, notes,user_id,project_id,created,updated,file_link' );
-		$this->db->from('daily_build');
+		$this->db->select( 'diagram_id, description,project_id,uploaded,filename' );
+		$this->db->from('diagrams');
         $this->db->where( 'project_id', $_SESSION['project_id'] );
 
 		if( $get_one )
@@ -94,7 +91,7 @@ class Model_daily_build extends CI_Model
         }
 		else
         {
-            $this->db->where( 'id', $id );
+            $this->db->where( 'diagram_id', $id );
         }
 
 		$query = $this->db->get();
@@ -103,12 +100,10 @@ class Model_daily_build extends CI_Model
 		{
 			$row = $query->row_array();
 			return array( 
-                        	'id'        => $row['id'],
-                        	'notes'     => $row['notes'],
-                        	'user_id'   => $row['user_id'],
-                        	'created'   => $row['created'],
-                            'updated'   => $row['updated'],
-                            'file_link' => $row['file_link'],
+                        	'diagram_id'  => $row['diagram_id'],
+                        	'description' => $row['description'],
+                        	'uploaded'    => $row['uploaded'],
+                            'filename'    => $row['filename']
                      );
 		}
         else
@@ -116,5 +111,4 @@ class Model_daily_build extends CI_Model
             return array();
         }
 	}
-}
-?>
+} //End of file brace

@@ -1,5 +1,14 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
+/*
+|--------------------------------------------------------------------------
+| Model Annotion Site Specific Code
+|--------------------------------------------------------------------------
+|
+| Define the base path to the upload directory.  Make sure this directory is writable.
+*/
+define('upload_base', 'C:\Program Files (x86)\Zend\Apache2\htdocs\model\uploads'); //My laptop base directory
+#$_SESSION['upload_base'] = '/var/models';  //Production Server base upload directory.
 
 /*
 |--------------------------------------------------------------------------

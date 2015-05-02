@@ -145,7 +145,4 @@ class Dashboard extends CI_Controller
 		if (!$render) return $view_html;
 	}
 
-}
-
-/* End of file dasdhboard.php */
-/* Location: ./application/controllers/dasdhboard.php */
+} //End of file brace.
