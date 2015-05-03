@@ -2,7 +2,7 @@
 
 /**
  * @author Dennis A. Simpson
- * @copyright 2014
+ * @copyright 2015
  * @version 1.0
  * @abstract This is the controler for handling the model Daily Builds.
  */
@@ -134,7 +134,7 @@ class Daily_build extends CI_Controller
 
             $data_post['notes']      = $this->input->post( 'notes' );
             $data_post['project_id'] = $_SESSION['project_id'];
-            $data_post['user_id']    = $this->user_id;
+            $data_post['user_id']    = $_SESSION['user_id'];
             $data_post['created']    = date('Y-m-d H:i:s');
 
             if($upload_data['client_name'] == TRUE)
@@ -239,8 +239,7 @@ class Daily_build extends CI_Controller
 
     function display_file($file = FALSE)
     {
-        #$path = rtrim($this->filepath, '/').'/';  //Linux Line
-        $path = rtrim($this->filepath, "\\").'\\';  //Windows Line
+        $path = rtrim($this->filepath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$_SESSION['project_id'].DIRECTORY_SEPARATOR;
         if(is_file($path.$file))
         {
             $this->output
@@ -261,10 +260,7 @@ class Daily_build extends CI_Controller
     {
         $this->load->helper('download_helper');
         $this->load->helper('file');
-        
-        #$path = rtrim($this->filepath, '/').'/';  //Linux Line
-        $path = rtrim($this->filepath, "\\").'\\';  //Windows Line
-        
+        $path = rtrim($this->filepath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$_SESSION['project_id'].DIRECTORY_SEPARATOR;
 
         if(is_file($path.$file))
         {
@@ -304,7 +300,6 @@ class Daily_build extends CI_Controller
 
     function delete( $id = FALSE )
     {
-        //$this->model_daily_build->delete_file( $id, $this->filepath );
         $this->model_utilities->delete_file($this->model_daily_build->get( $id ));
         $this->model_utilities->delete('daily_build', 'id', $id );
         $_SESSION['messages'] = 'Deletion Successful.  File and Database Links Removed.';
