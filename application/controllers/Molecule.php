@@ -76,6 +76,38 @@ class Molecule extends CI_Controller
 	}
 
 #######################################################################################################################
+#                      Output PDF List of all Molecules for selected project                                          #
+#######################################################################################################################
+
+    function pdf()
+    {
+        $this->load->library('m_pdf');
+        $pdf = $this->m_pdf->load();
+        $this->model_utilities->pagination( FALSE );
+        $this->information['title'] = 'List of Molecules in Selected Project';
+
+        $this->template->assign( 'fields', $this->model_molecule->fields( TRUE ) );
+        $this->template->assign('data', $this->model_molecule->lister( $page ));
+        $this->template->assign( 'pager', $this->model_molecule->pager );
+        $this->template->assign('information', $this->information);
+        
+        
+        $this->template->assign( 'logged_in', $this->ion_auth->logged_in( TRUE ) );
+   		$this->template->assign( 'user_id', $this->ion_auth->get_user_id());
+        $this->template->assign( 'project', $_SESSION['project_name']);
+        ob_start();
+        $this->_render_page('list_molecule.tpl');
+        $view_pdf = ob_get_clean();
+
+
+        $pdfFilePath = 'Molecule.pdf';
+        $pdf->WriteHTML($view_pdf);
+
+        $pdf->Output($pdfFilePath, "I");
+    }
+
+
+#######################################################################################################################
 #                                        Lists ALL Molecules into a Table                                             #
 #######################################################################################################################
 
@@ -302,6 +334,3 @@ class Molecule extends CI_Controller
 
 }//end of file brace.
 
-/* End of File "molecule.php" */
-/* File Location: ./application/controllers/ */
-?>
